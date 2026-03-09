@@ -223,6 +223,10 @@ copy_files() {
     cp -r "$SCRIPT_DIR/web" "$INSTALL_DIR/" || { log_error "Fehler beim Kopieren von web/"; return 1; }
     cp -r "$SCRIPT_DIR/deamon" "$INSTALL_DIR/" || { log_error "Fehler beim Kopieren von deamon/"; return 1; }
     
+    # Erstelle Log-Verzeichnis
+    mkdir -p "$INSTALL_DIR/log" || { log_error "Fehler beim Erstellen von log/"; return 1; }
+    chmod 755 "$INSTALL_DIR/log" || { log_error "Fehler beim Setzen der Berechtigungen für log/"; return 1; }
+    
     # Prüfe ob Dateien existieren
     if [ ! -f "$INSTALL_DIR/lib/cloud-sync.sh" ]; then
         log_error "cloud-sync.sh wurde nicht kopiert"
@@ -231,6 +235,11 @@ copy_files() {
     
     if [ ! -f "$INSTALL_DIR/web/server.py" ]; then
         log_error "server.py wurde nicht kopiert"
+        return 1
+    fi
+    
+    if [ ! -d "$INSTALL_DIR/log" ]; then
+        log_error "log/ Verzeichnis wurde nicht erstellt"
         return 1
     fi
     
