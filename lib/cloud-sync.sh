@@ -3,7 +3,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/../conf/cloud-sync.conf"
-LOG_FILE="/var/log/cloud-sync.log"
+LOG_FILE="$SCRIPT_DIR/../log/cloud-sync.log"
 
 # Funktion zum Parsen der INI-Datei
 parse_config() {
