@@ -442,6 +442,8 @@ def get_status():
                 'init_files': job_info['init_files'],
                 'init_size': job_info['init_size'],
                 'init_transferred': job_info['init_transferred'],
+                'init_files_current': job_info['init_files_current'],
+                'init_size_current': job_info['init_size_current'],
                 'init_status': job_info['init_status'],
                 'is_syncing': job_info['is_syncing'],
                 'is_initializing': job_info['is_initializing']
