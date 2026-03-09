@@ -6,6 +6,8 @@ const LOG_REFRESH_INTERVAL = 5000; // 5 Sekunden
 
 let statusRefreshTimer = null;
 let logRefreshTimer = null;
+let countdownTimer = null;
+let nextRefreshTime = 0;
 
 // Hilfsfunktionen
 function formatTimestamp(isoString) {
@@ -43,8 +45,27 @@ function formatPath(path) {
     return path;
 }
 
+// Countdown aktualisieren
+function updateCountdown() {
+    const now = Date.now();
+    const remaining = Math.max(0, nextRefreshTime - now);
+    const seconds = Math.ceil(remaining / 1000);
+    
+    const countdownElement = document.getElementById('next-refresh');
+    if (countdownElement) {
+        if (seconds > 0) {
+            countdownElement.textContent = `in ${seconds}s`;
+        } else {
+            countdownElement.textContent = 'jetzt...';
+        }
+    }
+}
+
 // Status-Daten abrufen und anzeigen
 async function updateStatus() {
+    nextRefreshTime = Date.now() + REFRESH_INTERVAL;
+    updateCountdown();
+    
     try {
         const response = await fetch('/api/status');
         const data = await response.json();
@@ -285,6 +306,9 @@ function startRefreshTimers() {
     // Regelmäßige Aktualisierung
     statusRefreshTimer = setInterval(updateStatus, REFRESH_INTERVAL);
     logRefreshTimer = setInterval(updateLogs, LOG_REFRESH_INTERVAL);
+    
+    // Countdown-Timer (alle 100ms für flüssige Anzeige)
+    countdownTimer = setInterval(updateCountdown, 100);
 }
 
 // Refresh-Timer stoppen
@@ -296,6 +320,10 @@ function stopRefreshTimers() {
     if (logRefreshTimer) {
         clearInterval(logRefreshTimer);
         logRefreshTimer = null;
+    }
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
     }
 }
 

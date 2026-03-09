@@ -85,6 +85,12 @@ header h1 {
     color: #374151;
 }
 
+.countdown {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-variant-numeric: tabular-nums;
+}
+
 /* Stats Overview */
 .stats-overview {
     display: grid;
