@@ -155,34 +155,33 @@ watch_and_sync() {
             fi
         }
         
-        # Führe rsync aus und parse Output
-        rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1 | \
-            while IFS='|' read -r size filename; do
-                # Überspringe Leerzeilen und Stats
-                [[ -z "$size" ]] && continue
+        # Führe rsync aus und parse Output (Process Substitution vermeidet Subshell)
+        while IFS='|' read -r size filename; do
+            # Überspringe Leerzeilen und Stats
+            [[ -z "$size" ]] && continue
+            
+            # Wenn Zeile das Format "Zahl|Dateiname" hat
+            if [[ "$size" =~ ^[0-9]+$ ]]; then
+                ((FILE_COUNT++))
+                TOTAL_BYTES=$((TOTAL_BYTES + size))
                 
-                # Wenn Zeile das Format "Zahl|Dateiname" hat
-                if [[ "$size" =~ ^[0-9]+$ ]]; then
-                    ((FILE_COUNT++))
-                    TOTAL_BYTES=$((TOTAL_BYTES + size))
-                    
-                    # Logge Fortschritt alle 10 Sekunden ODER alle 100 Dateien
-                    CURRENT_TIME=$(date +%s)
-                    TIME_DIFF=$((CURRENT_TIME - LAST_LOG_TIME))
-                    
-                    if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
-                        FORMATTED_SIZE=$(format_size $TOTAL_BYTES)
-                        echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE" >> "$LOG_FILE"
-                        LAST_LOG_TIME=$CURRENT_TIME
-                    fi
-                # Stats-Zeilen (ohne Pipe)
-                elif [[ "$size" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
-                    echo "[$(date)] [$JOB_NAME] [INIT] $size" >> "$LOG_FILE"
+                # Logge Fortschritt alle 10 Sekunden ODER alle 100 Dateien
+                CURRENT_TIME=$(date +%s)
+                TIME_DIFF=$((CURRENT_TIME - LAST_LOG_TIME))
+                
+                if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
+                    FORMATTED_SIZE=$(format_size $TOTAL_BYTES)
+                    echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE" >> "$LOG_FILE"
+                    LAST_LOG_TIME=$CURRENT_TIME
                 fi
-            done
+            # Stats-Zeilen (ohne Pipe)
+            elif [[ "$size" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
+                echo "[$(date)] [$JOB_NAME] [INIT] $size" >> "$LOG_FILE"
+            fi
+        done < <(rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1)
         
         # Prüfe Exit-Code
-        RSYNC_EXIT=${PIPESTATUS[0]}
+        RSYNC_EXIT=$?
         if [ $RSYNC_EXIT -eq 0 ]; then
             echo "[$(date)] [$JOB_NAME] [SUCCESS] Initiale Synchronisation erfolgreich abgeschlossen" >> "$LOG_FILE"
         else
