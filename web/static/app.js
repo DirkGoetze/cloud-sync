@@ -208,12 +208,12 @@ function createJobCard(job) {
                     </div>
                 </div>
                 
-                ${job.status === 'initializing' && (job.init_files || job.init_size) ? `
+                ${job.status === 'initializing' ? `
                     <div class="init-info-compact">
                         <div class="init-title">⏳ Initiale Synchronisation läuft...</div>
                         <div class="init-details">
-                            ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : ''}
-                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : ''}
+                            ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : '<span>📊 Dateien: wird ermittelt...</span>'}
+                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : '<span>💾 Größe: wird ermittelt...</span>'}
                             ${job.init_transferred ? `<span>📤 Übertragen: ${job.init_transferred}</span>` : ''}
                         </div>
                     </div>
