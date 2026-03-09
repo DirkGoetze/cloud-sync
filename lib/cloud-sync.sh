@@ -131,36 +131,53 @@ watch_and_sync() {
     if [[ -n "$RSYNC_OPTS" ]]; then
         echo "[$(date)] [$JOB_NAME] [INIT] Starte initiale Synchronisation..." >> "$LOG_FILE"
         
-        # Führe rsync mit verbose und stats aus
-        RSYNC_OPTS_INIT="$RSYNC_OPTS --stats"
+        # Führe rsync mit custom output format für Größen-Tracking
+        RSYNC_OPTS_INIT="$RSYNC_OPTS --stats --out-format=%l|%n"
         
-        # Zähler für übertragene Dateien
+        # Zähler für Dateien und Größe
         FILE_COUNT=0
+        TOTAL_BYTES=0
         LAST_LOG_TIME=$(date +%s)
+        
+        # Hilfsfunktion für lesbare Größen
+        format_size() {
+            local bytes=$1
+            if [[ $bytes -lt 1024 ]]; then
+                echo "$bytes Bytes"
+            elif [[ $bytes -lt 1048576 ]]; then
+                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1024}") KB"
+            elif [[ $bytes -lt 1073741824 ]]; then
+                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1048576}") MB"
+            elif [[ $bytes -lt 1099511627776 ]]; then
+                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1073741824}") GB"
+            else
+                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1099511627776}") TB"
+            fi
+        }
         
         # Führe rsync aus und parse Output
         rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1 | \
-            while IFS= read -r line; do
-                # Überspringe Leerzeilen
-                [[ -z "$line" ]] && continue
+            while IFS='|' read -r size filename; do
+                # Überspringe Leerzeilen und Stats
+                [[ -z "$size" ]] && continue
                 
-                # Datei-Transfers erkennen (Zeilen die mit Dateinamen beginnen, keine Verzeichnisse)
-                if [[ ! "$line" =~ /$ ]] && \
-                   [[ ! "$line" =~ ^(sending|sent|received|total|deleting|Number|speedup|building|created) ]] && \
-                   [[ "$line" =~ ^[a-zA-Z0-9._-] ]]; then
+                # Wenn Zeile das Format "Zahl|Dateiname" hat
+                if [[ "$size" =~ ^[0-9]+$ ]]; then
                     ((FILE_COUNT++))
+                    TOTAL_BYTES=$((TOTAL_BYTES + size))
                     
                     # Logge Fortschritt alle 10 Sekunden ODER alle 100 Dateien
                     CURRENT_TIME=$(date +%s)
                     TIME_DIFF=$((CURRENT_TIME - LAST_LOG_TIME))
                     
                     if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
-                        echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT" >> "$LOG_FILE"
+                        FORMATTED_SIZE=$(format_size $TOTAL_BYTES)
+                        echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE" >> "$LOG_FILE"
                         LAST_LOG_TIME=$CURRENT_TIME
                     fi
-                # Stats am Ende
-                elif [[ "$line" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
-                    echo "[$(date)] [$JOB_NAME] [INIT] $line" >> "$LOG_FILE"
+                # Stats-Zeilen (ohne Pipe)
+                elif [[ "$size" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
+                    echo "[$(date)] [$JOB_NAME] [INIT] $size" >> "$LOG_FILE"
                 fi
             done
         

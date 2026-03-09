@@ -215,7 +215,9 @@ function createJobCard(job) {
                             ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : 
                               job.init_files_current ? `<span>📊 Dateien: ${job.init_files_current} (läuft...)</span>` :
                               '<span>📊 Dateien: wird ermittelt...</span>'}
-                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : '<span>💾 Größe: wird ermittelt...</span>'}
+                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : 
+                              job.init_size_current ? `<span>💾 Größe: ${job.init_size_current} (läuft...)</span>` :
+                              '<span>💾 Größe: wird ermittelt...</span>'}
                             ${job.init_transferred ? `<span>📤 Übertragen: ${job.init_transferred}</span>` : ''}
                         </div>
                     </div>
