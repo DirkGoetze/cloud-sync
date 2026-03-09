@@ -134,26 +134,27 @@ watch_and_sync() {
         # Verwende --info=progress2 für Live-Fortschritt, --no-inc-recursive für sofortige Dateianzahl
         RSYNC_OPTS_PROGRESS="${RSYNC_OPTS//-v/} --info=progress2 --no-inc-recursive --stats"
         
-        # Führe rsync aus mit unbuffered output
+        # Führe rsync aus und parse mit awk (robuster als grep/while)
         rsync $RSYNC_OPTS_PROGRESS "$SOURCE/" "$TARGET/" 2>&1 | \
-            stdbuf -oL grep -E "xfr#|ir-chk|to-chk|Number of files|Total file size|Total transferred|speedup" | \
-            while IFS= read -r line; do
-                # Fortschrittszeilen (xfr#) selektiv loggen
-                if [[ "$line" =~ xfr#([0-9]+) ]]; then
-                    XFR_NUM="${BASH_REMATCH[1]}"
-                    # Erste 10 immer, dann jedes 50. (bis 1000), ab 1000 jedes 100.
-                    if [[ $XFR_NUM -le 10 ]] || 
-                       [[ $XFR_NUM -lt 1000 && $((XFR_NUM % 50)) -eq 0 ]] || 
-                       [[ $XFR_NUM -ge 1000 && $((XFR_NUM % 100)) -eq 0 ]]; then
-                        echo "[$(date)] [$JOB_NAME] [PROGRESS] $line" >> "$LOG_FILE"
-                    fi
-                else
-                    # Stats und finale Zeilen immer loggen
-                    echo "[$(date)] [$JOB_NAME] [INIT] $line" >> "$LOG_FILE"
-                fi
-            done
+            awk -v job="$JOB_NAME" '
+                /xfr#[0-9]+/ {
+                    # Extrahiere xfr Nummer
+                    match($0, /xfr#([0-9]+)/, arr);
+                    xfr = arr[1];
+                    # Logge erste 10, dann jedes 50. bis 1000, dann jedes 100.
+                    if (xfr <= 10 || (xfr < 1000 && xfr % 50 == 0) || (xfr >= 1000 && xfr % 100 == 0)) {
+                        print "[" strftime("%a %d. %b %H:%M:%S UTC %Y") "] [" job "] [PROGRESS] " $0;
+                        fflush();
+                    }
+                    next;
+                }
+                /Number of files|Total file size|Total transferred|speedup/ {
+                    print "[" strftime("%a %d. %b %H:%M:%S UTC %Y") "] [" job "] [INIT] " $0;
+                    fflush();
+                }
+            ' >> "$LOG_FILE"
         
-        # Prüfe Exit-Code (pipe status vom rsync)
+        # Prüfe Exit-Code (PIPESTATUS[0] = rsync)
         RSYNC_EXIT=${PIPESTATUS[0]}
         if [ $RSYNC_EXIT -eq 0 ]; then
             echo "[$(date)] [$JOB_NAME] [SUCCESS] Initiale Synchronisation erfolgreich abgeschlossen" >> "$LOG_FILE"
