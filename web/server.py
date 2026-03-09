@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Cloud-Sync Web Dashboard
-Parst /var/log/cloud-sync.log in Echtzeit und zeigt Status-Informationen
+Parst cloud-sync.log in Echtzeit und zeigt Status-Informationen
 """
 
 from flask import Flask, render_template, jsonify
@@ -22,7 +22,7 @@ except ImportError:
     # Defaults falls config.py nicht existiert
     WEB_HOST = os.environ.get('WEB_HOST', '0.0.0.0')
     WEB_PORT = int(os.environ.get('WEB_PORT', 8080))
-    LOG_FILE = os.environ.get('LOG_FILE', '/var/log/cloud-sync.log')
+    LOG_FILE = os.environ.get('LOG_FILE', '/usr/local/bin/cloud-sync/log/cloud-sync.log')
     CONFIG_FILE = os.environ.get('CONFIG_FILE', '/usr/local/bin/cloud-sync/conf/cloud-sync.conf')
     MAX_RECENT_SYNCS = int(os.environ.get('MAX_RECENT_SYNCS', 10))
 

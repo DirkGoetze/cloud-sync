@@ -85,8 +85,8 @@ sudo systemctl status cloud-sync.service
 sudo systemctl status cloud-sync-web.service
 
 # Logs ansehen
-tail -f /var/log/cloud-sync.log
-tail -f /var/log/cloud-sync-web.log
+tail -f /usr/local/bin/cloud-sync/log/cloud-sync.log
+tail -f /usr/local/bin/cloud-sync/log/cloud-sync-web.log
 ```
 
 ---

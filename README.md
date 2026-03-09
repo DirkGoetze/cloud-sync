@@ -182,7 +182,7 @@ sudo systemctl status cloud-sync.service
 
 **Logs anzeigen:**
 ```bash
-sudo tail -f /var/log/cloud-sync.log
+sudo tail -f /usr/local/bin/cloud-sync/log/cloud-sync.log
 # oder
 sudo journalctl -u cloud-sync.service -f
 ```
@@ -206,7 +206,7 @@ sudo systemctl status cloud-sync-web.service
 
 **Logs anzeigen:**
 ```bash
-sudo tail -f /var/log/cloud-sync-web.log
+sudo tail -f /usr/local/bin/cloud-sync/log/cloud-sync-web.log
 ```
 
 **Service neu starten:**
@@ -267,7 +267,7 @@ sudo pip3 install flask
   - `delete=true`: Gelöschte Dateien werden auch im Ziel entfernt (inotify: delete, moved_from)
 - **Flexible Konfiguration**: Globale Defaults mit job-spezifischen Überschreibungen
 - **Multi-Job**: Mehrere Sync-Paare werden parallel überwacht
-- **Logging**: Alle Aktivitäten werden nach `/var/log/cloud-sync.log` protokolliert
+- **Logging**: Alle Aktivitäten werden nach `/usr/local/bin/cloud-sync/log/cloud-sync.log` protokolliert
 
 ## Web-Dashboard
 
@@ -295,7 +295,7 @@ Das Web-Dashboard bietet eine komfortable Oberfläche zur Überwachung aller Syn
 
 Der Web-Server:
 - Läuft auf Port **8080**
-- Parst `/var/log/cloud-sync.log` in Echtzeit
+- Parst `/usr/local/bin/cloud-sync/log/cloud-sync.log` in Echtzeit
 - Keine Änderungen am Bash-Script erforderlich
 - Geringer Ressourcenverbrauch (~20-30 MB RAM)
 - REST-API für eigene Integrationen
@@ -317,11 +317,7 @@ Das Script entfernt:
 - Alle Services (cloud-sync und cloud-sync-web)
 - Installierte Dateien in `/usr/local/bin/cloud-sync`
 - Systemd Service-Dateien
-
-**Log-Dateien werden NICHT gelöscht** und können manuell entfernt werden:
-```bash
-sudo rm /var/log/cloud-sync*.log
-```
+- Log-Dateien im Projektverzeichnis
 
 ## Troubleshooting
 
@@ -353,7 +349,7 @@ sudo apt-get install inotify-tools rsync
 systemctl status cloud-sync-web.service
 
 # Prüfe Logs
-tail -f /var/log/cloud-sync-web.log
+tail -f /usr/local/bin/cloud-sync/log/cloud-sync-web.log
 
 # Prüfe ob Port 80 verfügbar ist
 sudo netstat -tlnp | grep :80
@@ -375,8 +371,8 @@ sudo ufw allow 80/tcp  # Oder gewählten Port
 systemctl status cloud-sync.service
 
 # Prüfe Log-Datei
-ls -la /var/log/cloud-sync.log
-tail -f /var/log/cloud-sync.log
+ls -la /usr/local/bin/cloud-sync/log/cloud-sync.log
+tail -f /usr/local/bin/cloud-sync/log/cloud-sync.log
 
 # Prüfe Konfiguration
 cat /usr/local/bin/cloud-sync/conf/cloud-sync.conf

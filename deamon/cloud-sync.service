@@ -7,8 +7,8 @@ Type=simple
 ExecStart=/usr/local/bin/cloud-sync/lib/cloud-sync.sh
 Restart=always
 User=root
-StandardOutput=append:/var/log/cloud-sync.log
-StandardError=append:/var/log/cloud-sync.log
+StandardOutput=append:/usr/local/bin/cloud-sync/log/cloud-sync.log
+StandardError=append:/usr/local/bin/cloud-sync/log/cloud-sync.log
 
 [Install]
 WantedBy=multi-user.target

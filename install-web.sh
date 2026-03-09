@@ -286,7 +286,7 @@ configure_web_server() {
         echo "WEB_PORT = $WEB_PORT"
         echo ""
         echo "# Sync-Service Konfiguration"
-        echo "LOG_FILE = \"/var/log/cloud-sync.log\""
+        echo "LOG_FILE = \"/usr/local/bin/cloud-sync/log/cloud-sync.log\""
         echo "CONFIG_FILE = \"/usr/local/bin/cloud-sync/conf/cloud-sync.conf\""
         echo "MAX_RECENT_SYNCS = 10"
     } > "$INSTALL_DIR/web/config.py"
@@ -310,8 +310,8 @@ configure_web_server() {
         echo "WorkingDirectory=$INSTALL_DIR/web"
         echo "Environment=\"WEB_HOST=$WEB_IP\""
         echo "Environment=\"WEB_PORT=$WEB_PORT\""
-        echo "StandardOutput=append:/var/log/cloud-sync-web.log"
-        echo "StandardError=append:/var/log/cloud-sync-web.log"
+        echo "StandardOutput=append:$INSTALL_DIR/log/cloud-sync-web.log"
+        echo "StandardError=append:$INSTALL_DIR/log/cloud-sync-web.log"
         echo ""
         echo "[Install]"
         echo "WantedBy=multi-user.target"
@@ -425,7 +425,7 @@ start_and_verify_services() {
         log_error "cloud-sync-web.service ist nicht aktiv"
         echo ""
         log_info "Letzte Log-Einträge:"
-        tail -20 /var/log/cloud-sync-web.log
+        tail -20 $INSTALL_DIR/log/cloud-sync-web.log 2>/dev/null || echo "Log-Datei noch nicht vorhanden"
         echo ""
         systemctl status cloud-sync-web.service --no-pager -l
         return 1
@@ -455,8 +455,8 @@ show_completion_info() {
     echo "📝 Nützliche Befehle:"
     echo "   Status Sync:       systemctl status cloud-sync.service"
     echo "   Status Web:        systemctl status cloud-sync-web.service"
-    echo "   Logs Sync:         tail -f /var/log/cloud-sync.log"
-    echo "   Logs Web:          tail -f /var/log/cloud-sync-web.log"
+    echo "   Logs Sync:         tail -f $INSTALL_DIR/log/cloud-sync.log"
+    echo "   Logs Web:          tail -f $INSTALL_DIR/log/cloud-sync-web.log"
     echo "   Sync neu laden:    systemctl restart cloud-sync.service"
     echo "   Web neu laden:     systemctl restart cloud-sync-web.service"
     echo ""
@@ -526,7 +526,7 @@ main() {
         log_error "Fehler beim Starten der Services"
         echo ""
         log_info "Troubleshooting-Tipps:"
-        echo "1. Prüfe die Logs: tail -f /var/log/cloud-sync-web.log"
+        echo "1. Prüfe die Logs: tail -f $INSTALL_DIR/log/cloud-sync-web.log"
         echo "2. Prüfe Service-Status: systemctl status cloud-sync-web.service"
         echo "3. Teste manuell: python3 $INSTALL_DIR/web/server.py"
         exit 1

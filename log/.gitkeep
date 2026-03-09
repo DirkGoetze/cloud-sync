@@ -1,0 +1,4 @@
+# Log-Verzeichnis für Cloud-Sync
+# Logs werden hier gespeichert:
+# - cloud-sync.log (Hauptlog der Sync-Aktivitäten)
+# - cloud-sync-web.log (Log des Web-Dashboards)

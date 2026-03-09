@@ -8,8 +8,8 @@ ExecStart=/usr/bin/python3 /usr/local/bin/cloud-sync/web/server.py
 Restart=always
 User=root
 WorkingDirectory=/usr/local/bin/cloud-sync/web
-StandardOutput=append:/var/log/cloud-sync-web.log
-StandardError=append:/var/log/cloud-sync-web.log
+StandardOutput=append:/usr/local/bin/cloud-sync/log/cloud-sync-web.log
+StandardError=append:/usr/local/bin/cloud-sync/log/cloud-sync-web.log
 
 # Sicherheits-Optionen (optional)
 # PrivateTmp=yes
