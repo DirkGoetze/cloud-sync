@@ -186,6 +186,12 @@ def process_log_line(line):
     timestamp = parsed['timestamp']
     
     with status_lock:
+        # Ignoriere ungültige Job-Namen
+        if not job_name or not job_name.strip():
+            return
+        
+        job_name = job_name.strip()
+        
         # Ignoriere DEFAULTS und SYSTEM Job-Namen
         if job_name in ['DEFAULTS', 'SYSTEM']:
             if job_name == 'SYSTEM' and action == 'STARTUP':
@@ -194,6 +200,7 @@ def process_log_line(line):
             return
         
         job = status_data['jobs'][job_name]
+        job['name'] = job_name  # Setze Name explizit
         job['last_activity'] = timestamp.isoformat()
         status_data['last_update'] = datetime.now().isoformat()
         
@@ -333,11 +340,19 @@ def get_status():
     """API: Aktueller Status aller Jobs"""
     with status_lock:
         # Konvertiere defaultdict zu regulärem dict und deque zu list
-        # Filtere Jobs ohne source/destination (z.B. DEFAULTS)
+        # Filtere Jobs ohne source/destination und ungültige Jobs
         jobs_data = {}
         for job_name, job_info in status_data['jobs'].items():
+            # Überspringe Jobs mit leerem Namen
+            if not job_name or not job_name.strip():
+                continue
+            
+            # Überspringe System-Jobs
+            if job_name in ['DEFAULTS', 'SYSTEM']:
+                continue
+            
             # Überspringe Jobs ohne source oder destination
-            if not job_info['source'] or not job_info['destination']:
+            if not job_info.get('source') or not job_info.get('destination'):
                 continue
             
             jobs_data[job_name] = {
