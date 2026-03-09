@@ -45,7 +45,8 @@ status_data = {
         'is_syncing': False,
         'is_initializing': False
     }),
-    'last_update': None
+    'last_update': None,
+    'valid_jobs': set()  # Whitelist der gültigen Job-Namen aus Config
 }
 
 status_lock = threading.Lock()
@@ -139,8 +140,12 @@ def tail_log_file():
     # Lade Config
     config_jobs = parse_config()
     with status_lock:
+        # Initialisiere Jobs aus Config und erstelle Whitelist
+        status_data['valid_jobs'] = set(config_jobs.keys())
         for job_name, job_info in config_jobs.items():
             status_data['jobs'][job_name].update(job_info)
+    
+    print(f"Valid jobs from config: {status_data['valid_jobs']}")
     
     # Lese initiale Log-Daten (letzte 1000 Zeilen)
     if os.path.exists(LOG_FILE):
@@ -197,6 +202,11 @@ def process_log_line(line):
             if job_name == 'SYSTEM' and action == 'STARTUP':
                 status_data['service_start'] = timestamp.isoformat()
             status_data['last_update'] = datetime.now().isoformat()
+            return
+        
+        # WICHTIG: Nur Jobs verarbeiten, die in der Config existieren
+        if job_name not in status_data['valid_jobs']:
+            print(f"Ignoring log entry for unknown job: '{job_name}'")
             return
         
         job = status_data['jobs'][job_name]
