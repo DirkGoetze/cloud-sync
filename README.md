@@ -21,7 +21,7 @@ cloud-sync/
 │   └── static/
 │       ├── style.css
 │       └── app.js
-├── install-web.sh          # Automatisches Installations-Script
+├── install.sh              # Automatisches Installations-Script
 ├── uninstall.sh            # Deinstallations-Script
 └── README.md
 ```
@@ -36,8 +36,8 @@ Das automatische Installations-Script richtet alles ein:
 # 1. Projekt zum Server kopieren (z.B. via rsync oder scp)
 # 2. Auf dem Server ausführen:
 cd /pfad/zum/kopierten/projekt/cloud-sync
-sudo chmod +x install-web.sh
-sudo ./install-web.sh
+sudo chmod +x install.sh
+sudo ./install.sh
 ```
 
 **Das Script führt automatisch aus:**
@@ -354,7 +354,7 @@ tail -f /usr/local/bin/cloud-sync/log/cloud-sync-web.log
 # Prüfe ob Port 80 verfügbar ist
 sudo netstat -tlnp | grep :80
 
-# Falls Port blockiert, ändere in install-web.sh:
+# Falls Port blockiert, ändere in install.sh:
 WEB_PORT="8080"  # Alternativer Port
 
 # Firewall prüfen
@@ -384,7 +384,7 @@ cat /usr/local/bin/cloud-sync/conf/cloud-sync.conf
 
 ```bash
 # Option 1: Verwende Port > 1024 (z.B. 8080)
-# Ändere in install-web.sh: WEB_PORT="8080"
+# Ändere in install.sh: WEB_PORT="8080"
 
 # Option 2: Verwende authbind oder setcap
 sudo apt-get install authbind

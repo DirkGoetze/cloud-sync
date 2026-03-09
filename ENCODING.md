@@ -35,7 +35,7 @@ Erstelle/bearbeite `.vscode/settings.json`:
 ## Dateien die dies betrifft
 
 - `lib/cloud-sync.sh`
-- `install-web.sh`
+- `install.sh`
 - `uninstall.sh`
 
 Python-Dateien (.py) können UTF-8 with BOM verwenden, aber UTF-8 ohne BOM ist bevorzugt.

@@ -17,8 +17,8 @@ rsync -avz L:\clouds\onedrive\Dirk\projects\cloud-sync user@192.168.20.123:/tmp/
 ```bash
 # Als root/sudo
 cd /tmp/cloud-sync
-chmod +x install-web.sh
-sudo ./install-web.sh
+chmod +x install.sh
+sudo ./install.sh
 ```
 
 ### 3. Dashboard öffnen
@@ -35,10 +35,10 @@ Im Browser: **http://SERVER-IP:8080**
 
 ### Port ändern
 
-**VOR der Installation** `install-web.sh` bearbeiten:
+**VOR der Installation** `install.sh` bearbeiten:
 
 ```bash
-nano install-web.sh
+nano install.sh
 
 # Zeile 13 ändern:
 WEB_PORT="8080"              # Gewünschter Port (empfohlen: >1024)

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Cloud-Sync Web-Dashboard Installations-Script
-# Installiert alle Abhängigkeiten und richtet den Web-Server ein
+# Cloud-Sync Installations-Script
+# Installiert den Sync-Service, Web-Dashboard und alle Abhängigkeiten
 
 set -e  # Beende bei Fehler
 
@@ -41,7 +41,7 @@ check_root() {
     
     if [ "$EUID" -ne 0 ]; then 
         log_error "Dieses Script muss als root ausgeführt werden!"
-        echo "Verwendung: sudo ./install-web.sh"
+        echo "Verwendung: sudo ./install.sh"
         return 1
     fi
     

@@ -10,7 +10,7 @@ venv/
 dist/
 build/
 
-# Web config (wird vom install-web.sh generiert)
+# Web config (wird vom install.sh generiert)
 web/config.py
 
 # IDE
