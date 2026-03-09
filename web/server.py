@@ -26,9 +26,14 @@ except ImportError:
     CONFIG_FILE = os.environ.get('CONFIG_FILE', '/usr/local/bin/cloud-sync/conf/cloud-sync.conf')
     MAX_RECENT_SYNCS = int(os.environ.get('MAX_RECENT_SYNCS', 10))
 
+# Web-UI Konfiguration (aus cloud-sync.conf [WEB-UI])
+web_ui_config = {
+    'refresh_interval': 10  # Standard: 10 Sekunden
+}
+
 # Globaler Status-Speicher
 status_data = {
-    'service_start': None,
+    'service_start': datetime.now().isoformat(),
     'jobs': defaultdict(lambda: {
         'name': '',
         'source': '',
@@ -50,6 +55,37 @@ status_data = {
 }
 
 status_lock = threading.Lock()
+
+
+def parse_web_ui_config():
+    """Parse [WEB-UI] Sektion aus cloud-sync.conf"""
+    global web_ui_config
+    
+    if not os.path.exists(CONFIG_FILE):
+        return
+    
+    in_webui_section = False
+    
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Prüfe Sektion
+                match = re.match(r'^\[([^\]]+)\]', line)
+                if match:
+                    in_webui_section = (match.group(1) == 'WEB-UI')
+                    continue
+                
+                if in_webui_section:
+                    # refresh= Parameter
+                    match = re.match(r'refresh\s*=\s*(\d+)', line)
+                    if match:
+                        web_ui_config['refresh_interval'] = int(match.group(1))
+    except Exception as e:
+        print(f"Error parsing WEB-UI config: {e}")
 
 
 def parse_config():
@@ -136,6 +172,10 @@ def parse_log_line(line):
 def tail_log_file():
     """Tail den Log-File und aktualisiere Status in Echtzeit"""
     print(f"Starting log tail on {LOG_FILE}")
+    
+    # Parse Web-UI Config
+    parse_web_ui_config()
+    print(f"Web-UI refresh interval: {web_ui_config['refresh_interval']}s")
     
     # Lade Config
     config_jobs = parse_config()
@@ -386,7 +426,8 @@ def get_status():
             'service_start': status_data['service_start'],
             'last_update': status_data['last_update'],
             'jobs': jobs_data,
-            'total_jobs': len(jobs_data)
+            'total_jobs': len(jobs_data),
+            'refresh_interval': web_ui_config['refresh_interval']
         })
 
 

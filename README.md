@@ -128,6 +128,10 @@ new=true          # Neue Dateien synchronisieren
 change=true       # Änderungen synchronisieren
 delete=false      # Löschungen synchronisieren
 
+# Web-Dashboard Einstellungen
+[WEB-UI]
+refresh=10        # Aktualisierungs-Intervall in Sekunden (Standard: 10)
+
 # Job-spezifische Konfiguration
 [JobName]
 source='/pfad/zum/quellordner'
@@ -140,11 +144,19 @@ destination='/pfad/zum/zielordner'
 
 ### Parameter-Beschreibung
 
+**Sync-Parameter ([DEFAULTS] und [JobName]):**
+
 | Parameter | Beschreibung | Default |
 |-----------|--------------|---------|
 | `new` | Neue Dateien werden synchronisiert | `true` |
 | `change` | Änderungen an bestehenden Dateien werden synchronisiert | `true` |
 | `delete` | Gelöschte Dateien werden auch im Ziel gelöscht | `false` |
+
+**Web-UI Parameter ([WEB-UI]):**
+
+| Parameter | Beschreibung | Default |
+|-----------|--------------|---------|
+| `refresh` | Dashboard-Aktualisierungsintervall in Sekunden | `10` |
 
 ### Beispiel-Konfiguration
 
@@ -153,6 +165,9 @@ destination='/pfad/zum/zielordner'
 new=true
 change=true
 delete=false
+
+[WEB-UI]
+refresh=10
 
 [Videos]
 source='/mnt/hdd/nas/videos'

@@ -1,7 +1,7 @@
 // Cloud-Sync Dashboard JavaScript
 // Aktualisiert das Dashboard in Echtzeit durch regelmäßiges Polling der API
 
-const REFRESH_INTERVAL = 2000; // 2 Sekunden
+let REFRESH_INTERVAL = 10000; // Standard: 10 Sekunden (wird aus API geladen)
 const LOG_REFRESH_INTERVAL = 5000; // 5 Sekunden
 
 let statusRefreshTimer = null;
@@ -99,6 +99,16 @@ async function updateStatus() {
         document.getElementById('total-jobs').textContent = data.total_jobs;
         document.getElementById('total-syncs').textContent = totalSyncs.toLocaleString('de-DE');
         document.getElementById('total-errors').textContent = totalErrors;
+        
+        // Refresh-Intervall aus API aktualisieren (falls geändert)
+        if (data.refresh_interval && data.refresh_interval * 1000 !== REFRESH_INTERVAL) {
+            REFRESH_INTERVAL = data.refresh_interval * 1000;
+            console.log(`Refresh-Intervall aktualisiert: ${data.refresh_interval}s`);
+            // Timer neu starten mit neuem Intervall
+            stopRefreshTimers();
+            startRefreshTimers();
+            return; // Verhindere doppelte Job-Renderung
+        }
         
         // Jobs rendern
         renderJobs(data.jobs);
