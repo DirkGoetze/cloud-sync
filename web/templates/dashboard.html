@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud-Sync Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔄 Cloud-Sync Dashboard</h1>
+            <div class="header-info">
+                <div class="info-item">
+                    <span class="label">Service Status:</span>
+                    <span id="service-status" class="status-badge unknown">Laden...</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Gestartet:</span>
+                    <span id="service-start">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Letzte Aktualisierung:</span>
+                    <span id="last-update">-</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-value" id="total-jobs">0</div>
+                <div class="stat-label">Aktive Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-syncs">0</div>
+                <div class="stat-label">Gesamt Syncs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-errors">0</div>
+                <div class="stat-label">Fehler</div>
+            </div>
+        </div>
+
+        <div class="status-legend">
+            <h3>Status-Legende</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="job-status-indicator ready"></span>
+                    <span>Bereit</span>
+                </div>
+                <div class="legend-item">
+                    <span class="job-status-indicator syncing"></span>
+                    <span>Synchronisiert</span>
+                </div>
+                <div class="legend-item">
+                    <span class="job-status-indicator initializing"></span>
+                    <span>Initialisierung</span>
+                </div>
+                <div class="legend-item">
+                    <span class="job-status-indicator error"></span>
+                    <span>Fehler/Inaktiv</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="jobs-container">
+            <!-- Jobs werden hier dynamisch eingefügt -->
+        </div>
+
+        <div class="log-section">
+            <h2>📄 Live-Log <span class="refresh-indicator" id="refresh-indicator"></span></h2>
+            <div class="log-container">
+                <pre id="log-output">Lade Logs...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

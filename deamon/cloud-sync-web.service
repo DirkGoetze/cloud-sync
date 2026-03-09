@@ -1,0 +1,19 @@
+[Unit]
+Description=Cloud-Sync Web Dashboard
+After=network.target cloud-sync.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/cloud-sync/web/server.py
+Restart=always
+User=root
+WorkingDirectory=/usr/local/bin/cloud-sync/web
+StandardOutput=append:/var/log/cloud-sync-web.log
+StandardError=append:/var/log/cloud-sync-web.log
+
+# Sicherheits-Optionen (optional)
+# PrivateTmp=yes
+# NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

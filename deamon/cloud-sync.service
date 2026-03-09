@@ -1,0 +1,14 @@
+[Unit]
+Description=Multi-Source Folder Sync Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloud-sync/lib/cloud-sync.sh
+Restart=always
+User=root
+StandardOutput=append:/var/log/cloud-sync.log
+StandardError=append:/var/log/cloud-sync.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,387 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Cloud-Sync Web Dashboard
+Parst /var/log/cloud-sync.log in Echtzeit und zeigt Status-Informationen
+"""
+
+from flask import Flask, render_template, jsonify
+from datetime import datetime
+import re
+import os
+import threading
+import time
+from collections import defaultdict, deque
+
+app = Flask(__name__)
+
+# Konfiguration - versuche config.py zu laden, sonst Defaults
+try:
+    from config import WEB_HOST, WEB_PORT, LOG_FILE, CONFIG_FILE, MAX_RECENT_SYNCS
+except ImportError:
+    # Defaults falls config.py nicht existiert
+    WEB_HOST = os.environ.get('WEB_HOST', '0.0.0.0')
+    WEB_PORT = int(os.environ.get('WEB_PORT', 8080))
+    LOG_FILE = os.environ.get('LOG_FILE', '/var/log/cloud-sync.log')
+    CONFIG_FILE = os.environ.get('CONFIG_FILE', '/usr/local/bin/cloud-sync/conf/cloud-sync.conf')
+    MAX_RECENT_SYNCS = int(os.environ.get('MAX_RECENT_SYNCS', 10))
+
+# Globaler Status-Speicher
+status_data = {
+    'service_start': None,
+    'jobs': defaultdict(lambda: {
+        'name': '',
+        'source': '',
+        'destination': '',
+        'status': 'unknown',  # unknown, ready, initializing, syncing, error, down
+        'last_activity': None,
+        'sync_count': 0,
+        'error_count': 0,
+        'recent_syncs': deque(maxlen=MAX_RECENT_SYNCS),
+        'parameters': {},
+        'init_files': None,
+        'init_size': None,
+        'init_status': None,
+        'is_syncing': False,
+        'is_initializing': False
+    }),
+    'last_update': None
+}
+
+status_lock = threading.Lock()
+
+
+def parse_config():
+    """Parse cloud-sync.conf um Job-Informationen zu erhalten"""
+    jobs = {}
+    current_job = None
+    
+    if not os.path.exists(CONFIG_FILE):
+        return jobs
+    
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            # Job-Name [Section]
+            match = re.match(r'^\[([^\]]+)\]', line)
+            if match:
+                current_job = match.group(1)
+                if current_job != 'DEFAULTS':
+                    jobs[current_job] = {
+                        'name': current_job,
+                        'source': '',
+                        'destination': '',
+                        'parameters': {}
+                    }
+                continue
+            
+            if not current_job or current_job == 'DEFAULTS':
+                continue
+            
+            # source= Zeile
+            match = re.match(r"source\s*=\s*['\"]?([^'\"]+)['\"]?", line)
+            if match:
+                jobs[current_job]['source'] = match.group(1)
+                continue
+            
+            # destination= Zeile
+            match = re.match(r"destination\s*=\s*['\"]?([^'\"]+)['\"]?", line)
+            if match:
+                jobs[current_job]['destination'] = match.group(1)
+                continue
+            
+            # Parameter (new, change, delete)
+            match = re.match(r"(new|change|delete)\s*=\s*(\w+)", line)
+            if match:
+                jobs[current_job]['parameters'][match.group(1)] = match.group(2)
+    
+    return jobs
+
+
+def parse_log_line(line):
+    """Parse eine einzelne Log-Zeile"""
+    # Neues Format: [2026-03-08 13:31:26] [JobName] [Aktion] Nachricht
+    match = re.match(r'\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] (.+)', line)
+    if match:
+        timestamp_str, job_name, action, message = match.groups()
+    else:
+        # Fallback: Altes Format [Datum] [JobName] Nachricht (ohne Aktion)
+        match = re.match(r'\[([^\]]+)\] \[([^\]]+)\] (.+)', line)
+        if not match:
+            return None
+        timestamp_str, job_name, message = match.groups()
+        action = 'INFO'
+    
+    try:
+        timestamp = datetime.strptime(timestamp_str, '%a %b %d %H:%M:%S %Z %Y')
+    except:
+        try:
+            timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+        except:
+            timestamp = datetime.now()
+    
+    return {
+        'timestamp': timestamp,
+        'job_name': job_name,
+        'action': action,
+        'message': message,
+        'raw': line
+    }
+
+
+def tail_log_file():
+    """Tail den Log-File und aktualisiere Status in Echtzeit"""
+    print(f"Starting log tail on {LOG_FILE}")
+    
+    # Lade Config
+    config_jobs = parse_config()
+    with status_lock:
+        for job_name, job_info in config_jobs.items():
+            status_data['jobs'][job_name].update(job_info)
+    
+    # Lese initiale Log-Daten (letzte 1000 Zeilen)
+    if os.path.exists(LOG_FILE):
+        try:
+            with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
+                # Lese letzte 1000 Zeilen
+                lines = deque(f, maxlen=1000)
+                for line in lines:
+                    process_log_line(line.strip())
+        except Exception as e:
+            print(f"Error reading initial log: {e}")
+    
+    # Tail den Log-File
+    if not os.path.exists(LOG_FILE):
+        print(f"Waiting for {LOG_FILE} to be created...")
+        while not os.path.exists(LOG_FILE):
+            time.sleep(1)
+    
+    with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
+        # Gehe zum Ende
+        f.seek(0, os.SEEK_END)
+        
+        while True:
+            line = f.readline()
+            if line:
+                process_log_line(line.strip())
+            else:
+                time.sleep(0.1)
+
+
+def process_log_line(line):
+    """Verarbeite eine Log-Zeile und aktualisiere Status"""
+    if not line:
+        return
+    
+    parsed = parse_log_line(line)
+    if not parsed:
+        return
+    
+    job_name = parsed['job_name']
+    action = parsed['action']
+    message = parsed['message']
+    timestamp = parsed['timestamp']
+    
+    with status_lock:
+        job = status_data['jobs'][job_name]
+        job['last_activity'] = timestamp.isoformat()
+        status_data['last_update'] = datetime.now().isoformat()
+        
+        # System-Events (STARTUP, SHUTDOWN)
+        if job_name == 'SYSTEM':
+            if action == 'STARTUP':
+                status_data['service_start'] = timestamp.isoformat()
+            return
+        
+        # Job-Status basierend auf Aktion
+        if action == 'START':
+            job['status'] = 'ready'
+            job['is_syncing'] = False
+            job['is_initializing'] = False
+            # Parse source -> target
+            match = re.search(r'Überwachung: (.+) -> (.+)', message)
+            if match and not job['source']:
+                job['source'] = match.group(1)
+                job['destination'] = match.group(2)
+        
+        elif action == 'CONFIG':
+            # Parameter extrahieren
+            match = re.search(r'new=(\w+), change=(\w+), delete=(\w+)', message)
+            if match:
+                job['parameters'] = {
+                    'new': match.group(1),
+                    'change': match.group(2),
+                    'delete': match.group(3)
+                }
+        
+        elif action == 'INIT':
+            # Initiale Sync - extrahiere Statistiken
+            job['status'] = 'initializing'
+            job['is_initializing'] = True
+            job['is_syncing'] = False
+            
+            if 'Number of files' in message:
+                match = re.search(r'Number of files[^:]*:\s*([\d,]+)', message)
+                if match:
+                    job['init_files'] = match.group(1).replace(',', '')
+            elif 'Total file size' in message:
+                match = re.search(r'Total file size:\s*([\d.]+)\s*(\w+)', message)
+                if match:
+                    job['init_size'] = f"{match.group(1)} {match.group(2)}"
+        
+        elif action == 'SYNC':
+            # Sync-Event - extrahiere Dateiname und Größe
+            if 'CREATE' in message or 'MODIFY' in message or 'MOVED_TO' in message:
+                # Format: CREATE: filename.ext (1.23MB)
+                match = re.search(r'(CREATE|MODIFY|MOVED_TO):\s*([^(]+)\s*\(([^)]+)\)', message)
+                if match:
+                    event_type, filename, size = match.groups()
+                    job['sync_count'] += 1
+                    job['status'] = 'syncing'
+                    job['is_syncing'] = True
+                    job['is_initializing'] = False
+                    job['recent_syncs'].appendleft({
+                        'timestamp': timestamp.isoformat(),
+                        'file': filename.strip(),
+                        'size': size.strip(),
+                        'event': event_type.lower(),
+                        'status': 'syncing'
+                    })
+        
+        elif action == 'DELETE':
+            # Lösch-Event
+            if 'Lösche:' in message:
+                match = re.search(r'Lösche:\s*(.+)', message)
+                if match:
+                    filename = match.group(1).strip()
+                    job['status'] = 'syncing'
+                    job['is_syncing'] = True
+                    job['is_initializing'] = False
+                    job['recent_syncs'].appendleft({
+                        'timestamp': timestamp.isoformat(),
+                        'file': filename,
+                        'event': 'delete',
+                        'status': 'deleting'
+                    })
+        
+        elif action == 'SUCCESS':
+            # Erfolgreiche Operation - extrahiere Dauer
+            if 'synchronisiert in' in message:
+                match = re.search(r'synchronisiert in (\d+)s', message)
+                if match:
+                    duration = int(match.group(1))
+                    # Update letzter Sync in recent_syncs
+                    if job['recent_syncs']:
+                        job['recent_syncs'][0]['status'] = 'success'
+                        job['recent_syncs'][0]['duration'] = f"{duration}s"
+                    # Zurück zu ready-Status
+                    job['status'] = 'ready'
+                    job['is_syncing'] = False
+            elif 'Initiale Synchronisation erfolgreich' in message:
+                job['init_status'] = 'success'
+                job['status'] = 'ready'
+                job['is_initializing'] = False
+            elif 'Löschung erfolgreich' in message:
+                if job['recent_syncs']:
+                    job['recent_syncs'][0]['status'] = 'success'
+                job['status'] = 'ready'
+                job['is_syncing'] = False
+        
+        elif action == 'FEHLER':
+            # Fehler
+            job['error_count'] += 1
+            job['status'] = 'error'
+            
+            # Update recent_syncs mit Fehler-Status
+            if job['recent_syncs'] and 'Rsync fehlgeschlagen' in message:
+                job['recent_syncs'][0]['status'] = 'error'
+            elif 'Initiale Synchronisation fehlgeschlagen' in message:
+                job['init_status'] = 'error'
+            elif 'Löschung fehlgeschlagen' in message:
+                if job['recent_syncs']:
+                    job['recent_syncs'][0]['status'] = 'error'
+        
+        elif action == 'WARNUNG':
+            # Warnungen
+            if 'Keine Sync-Events aktiviert' in message:
+                job['status'] = 'down'
+            
+        # Auto-Timeout: Wenn länger als 30 Sekunden keine Aktivität, setze auf ready
+        if job['last_activity']:
+            try:
+                last_activity_time = datetime.fromisoformat(job['last_activity'])
+                time_diff = (timestamp - last_activity_time).total_seconds()
+                if time_diff > 30 and job['status'] == 'syncing':
+                    job['status'] = 'ready'
+                    job['is_syncing'] = False
+            except:
+                pass
+
+
+@app.route('/')
+def dashboard():
+    """Haupt-Dashboard"""
+    return render_template('dashboard.html')
+
+
+@app.route('/api/status')
+def get_status():
+    """API: Aktueller Status aller Jobs"""
+    with status_lock:
+        # Konvertiere defaultdict zu regulärem dict und deque zu list
+        jobs_data = {}
+        for job_name, job_info in status_data['jobs'].items():
+            jobs_data[job_name] = {
+                'name': job_info['name'],
+                'source': job_info['source'],
+                'destination': job_info['destination'],
+                'status': job_info['status'],
+                'last_activity': job_info['last_activity'],
+                'sync_count': job_info['sync_count'],
+                'error_count': job_info['error_count'],
+                'recent_syncs': list(job_info['recent_syncs']),
+                'parameters': job_info['parameters'],
+                'init_files': job_info['init_files'],
+                'init_size': job_info['init_size'],
+                'init_status': job_info['init_status'],
+                'is_syncing': job_info['is_syncing'],
+                'is_initializing': job_info['is_initializing']
+            }
+        
+        return jsonify({
+            'service_start': status_data['service_start'],
+            'last_update': status_data['last_update'],
+            'jobs': jobs_data,
+            'total_jobs': len(jobs_data)
+        })
+
+
+@app.route('/api/logs')
+def get_logs():
+    """API: Letzte Log-Zeilen"""
+    try:
+        with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = deque(f, maxlen=100)
+            return jsonify({
+                'logs': list(lines),
+                'count': len(lines)
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def main():
+    # Starte Log-Tail in separatem Thread
+    log_thread = threading.Thread(target=tail_log_file, daemon=True)
+    log_thread.start()
+    
+    # Starte Flask-Server
+    print(f"Starting Cloud-Sync Web Dashboard on http://{WEB_HOST}:{WEB_PORT}")
+    app.run(host=WEB_HOST, port=WEB_PORT, debug=False, threaded=True)
+
+
+if __name__ == '__main__':
+    main()
