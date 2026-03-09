@@ -154,30 +154,15 @@ header h1 {
 /* Jobs */
 #jobs-container {
     display: grid;
-    gap: 1.5rem;
+    gap: 1rem;
     margin-bottom: 2rem;
 }
 
 .job-card {
     background: var(--card-bg);
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: var(--shadow);
     overflow: hidden;
-}
-
-.job-header {
-    padding: 1.5rem;
-    background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
-    color: white;
-}
-
-.job-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
 }
 
 .job-status-indicator {
@@ -224,94 +209,151 @@ header h1 {
     50% { opacity: 0.5; }
 }
 
-.job-paths {
+/* Kompakter Header */
+.job-header {
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+    color: white;
+}
+
+.job-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.job-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.job-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Parameter-Badges inline im Header */
+.job-parameters-inline {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.param-badge-compact {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.param-badge-compact.enabled {
+    background: rgba(16, 185, 129, 0.3);
+}
+
+.param-badge-compact.disabled {
+    background: rgba(239, 68, 68, 0.3);
+    opacity: 0.7;
+}
+
+/* Status inline */
+.job-status-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.job-status-text-compact {
     font-size: 0.875rem;
     opacity: 0.9;
 }
 
-.job-path {
-    margin: 0.25rem 0;
+/* Pfade kompakt */
+.job-paths-compact {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.job-path-compact {
     font-family: 'Monaco', 'Courier New', monospace;
 }
 
-.job-body {
-    padding: 1.5rem;
+/* Body kompakt */
+.job-body-compact {
+    padding: 0.75rem 1rem 1rem 1rem;
 }
 
-.job-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
+/* Statistiken kompakt - horizontal */
+.job-stats-compact {
+    display: flex;
+    gap: 2rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--border-color);
 }
 
-.job-stat {
-    text-align: center;
+.job-stat-compact {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
 }
 
-.job-stat-value {
-    font-size: 1.5rem;
+.stat-value-compact {
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--primary-color);
 }
 
-.job-stat-label {
-    font-size: 0.75rem;
+.stat-label-compact {
+    font-size: 0.65rem;
     color: var(--text-muted);
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.job-parameters {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.param-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.param-badge.enabled {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.param-badge.disabled {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-/* Init-Info Box */
-.init-info {
+/* Init-Info Box kompakt */
+.init-info-compact {
     background: linear-gradient(135deg, #fef3c7, #fde68a);
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    border-left: 4px solid var(--warning-color);
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin: 0.75rem 0;
+    border-left: 3px solid var(--warning-color);
 }
 
-.init-info h3 {
+.init-title {
     font-size: 0.875rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
     color: #78350f;
 }
 
-.init-info div {
-    font-size: 0.875rem;
+.init-details {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
     color: #92400e;
-    margin: 0.25rem 0;
 }
 
-.recent-syncs {
-    margin-top: 1rem;
+.init-details span {
+    display: inline-block;
+}
+
+/* Recent Syncs kompakt */
+.recent-syncs-compact {
+    margin-top: 0.75rem;
+}
+
+.empty-state-compact {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-style: italic;
 }
 
 .recent-syncs h3 {
@@ -321,15 +363,15 @@ header h1 {
 }
 
 .sync-list {
-    max-height: 300px;
+    max-height: 250px;
     overflow-y: auto;
 }
 
 .sync-item {
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
     background: var(--bg-color);
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 0.875rem;
 }
 

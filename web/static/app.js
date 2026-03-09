@@ -142,62 +142,58 @@ function createJobCard(job) {
     return `
         <div class="job-card">
             <div class="job-header">
-                <div class="job-title">
-                    <span>${job.name || 'Unbekannt'}</span>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="job-status-text" style="font-size: 0.875rem; opacity: 0.9;">${statusText}</span>
-                        <span class="job-status-indicator ${statusClass}"></span>
+                <div class="job-title-row">
+                    <span class="job-name">${job.name || 'Unbekannt'}</span>
+                    <div class="job-header-controls">
+                        <div class="job-parameters-inline">
+                            <span class="param-badge-compact ${params.new === 'true' ? 'enabled' : 'disabled'}">Neue: ${params.new === 'true' ? '✓' : '✗'}</span>
+                            <span class="param-badge-compact ${params.change === 'true' ? 'enabled' : 'disabled'}">Änderungen: ${params.change === 'true' ? '✓' : '✗'}</span>
+                            <span class="param-badge-compact ${params.delete === 'true' ? 'enabled' : 'disabled'}">Löschungen: ${params.delete === 'true' ? '✓' : '✗'}</span>
+                        </div>
+                        <div class="job-status-inline">
+                            <span class="job-status-text-compact">${statusText}</span>
+                            <span class="job-status-indicator ${statusClass}"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="job-paths">
-                    <div class="job-path">📁 ${formatPath(job.source)}</div>
-                    <div class="job-path">➡️ ${formatPath(job.destination)}</div>
+                <div class="job-paths-compact">
+                    <div class="job-path-compact">📁 ${formatPath(job.source)}</div>
+                    <div class="job-path-compact">💾 ${formatPath(job.destination)}</div>
                 </div>
             </div>
-            <div class="job-body">
-                <div class="job-stats">
-                    <div class="job-stat">
-                        <div class="job-stat-value">${(job.sync_count || 0).toLocaleString('de-DE')}</div>
-                        <div class="job-stat-label">Synchronisiert</div>
+            <div class="job-body-compact">
+                <div class="job-stats-compact">
+                    <div class="job-stat-compact">
+                        <span class="stat-value-compact">${(job.sync_count || 0).toLocaleString('de-DE')}</span>
+                        <span class="stat-label-compact">SYNCHRONISIERT</span>
                     </div>
-                    <div class="job-stat">
-                        <div class="job-stat-value">${job.error_count || 0}</div>
-                        <div class="job-stat-label">Fehler</div>
+                    <div class="job-stat-compact">
+                        <span class="stat-value-compact">${job.error_count || 0}</span>
+                        <span class="stat-label-compact">FEHLER</span>
                     </div>
-                    <div class="job-stat">
-                        <div class="job-stat-value">${formatRelativeTime(job.last_activity)}</div>
-                        <div class="job-stat-label">Letzte Aktivität</div>
+                    <div class="job-stat-compact">
+                        <span class="stat-value-compact">${formatRelativeTime(job.last_activity)}</span>
+                        <span class="stat-label-compact">LETZTE AKTIVITÄT</span>
                     </div>
-                </div>
-                
-                <div class="job-parameters">
-                    <span class="param-badge ${params.new === 'true' ? 'enabled' : 'disabled'}">
-                        Neue: ${params.new === 'true' ? '✓' : '✗'}
-                    </span>
-                    <span class="param-badge ${params.change === 'true' ? 'enabled' : 'disabled'}">
-                        Änderungen: ${params.change === 'true' ? '✓' : '✗'}
-                    </span>
-                    <span class="param-badge ${params.delete === 'true' ? 'enabled' : 'disabled'}">
-                        Löschungen: ${params.delete === 'true' ? '✓' : '✗'}
-                    </span>
                 </div>
                 
                 ${job.status === 'initializing' && (job.init_files || job.init_size) ? `
-                    <div class="init-info">
-                        <h3>⏳ Initiale Synchronisation läuft...</h3>
-                        ${job.init_files ? `<div>📊 Dateien: ${job.init_files}</div>` : ''}
-                        ${job.init_size ? `<div>💾 Größe: ${job.init_size}</div>` : ''}
+                    <div class="init-info-compact">
+                        <div class="init-title">⏳ Initiale Synchronisation läuft...</div>
+                        <div class="init-details">
+                            ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : ''}
+                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : ''}
+                        </div>
                     </div>
                 ` : ''}
                 
                 ${recentSyncs.length > 0 ? `
-                    <div class="recent-syncs">
-                        <h3>Letzte Synchronisationen</h3>
+                    <div class="recent-syncs-compact">
                         <div class="sync-list">
                             ${recentSyncs.map(sync => createSyncItem(sync)).join('')}
                         </div>
                     </div>
-                ` : '<div class="empty-state">Noch keine Synchronisationen</div>'}
+                ` : '<div class="empty-state-compact">Noch keine Synchronisationen</div>'}
             </div>
         </div>
     `;
