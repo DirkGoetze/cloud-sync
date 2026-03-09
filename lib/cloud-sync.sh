@@ -131,14 +131,25 @@ watch_and_sync() {
     if [[ -n "$RSYNC_OPTS" ]]; then
         echo "[$(date)] [$JOB_NAME] [INIT] Starte initiale Synchronisation..." >> "$LOG_FILE"
         
-        # Verwende --stats statt -v für kompakte Ausgabe
-        RSYNC_OPTS_STATS="${RSYNC_OPTS//-v/} --stats"
+        # Verwende --info=progress2 für Live-Fortschritt und --stats für finale Zusammenfassung
+        RSYNC_OPTS_PROGRESS="${RSYNC_OPTS//-v/} --info=progress2 --stats"
         
-        # Führe rsync aus und parse wichtige Stats
-        rsync $RSYNC_OPTS_STATS "$SOURCE/" "$TARGET/" 2>&1 | \
-            grep -E "Number of files|Total file size|Total transferred|speedup" | \
+        # Führe rsync aus und logge Fortschritt + Stats
+        # xfr# = Fortschrittszeilen, rest = finale Stats
+        rsync $RSYNC_OPTS_PROGRESS "$SOURCE/" "$TARGET/" 2>&1 | \
+            grep -E "xfr#|ir-chk|to-chk|Number of files|Total file size|Total transferred|speedup" | \
             while IFS= read -r line; do
-                echo "[$(date)] [$JOB_NAME] [INIT] $line" >> "$LOG_FILE"
+                # Fortschrittszeilen (xfr#) nur alle 100 Transfers loggen, um Log nicht zu überfluten
+                if [[ "$line" =~ xfr#([0-9]+) ]]; then
+                    XFR_NUM="${BASH_REMATCH[1]}"
+                    # Logge nur bei jedem 100. Transfer oder wenn Zahl auf 00 endet
+                    if [[ $((XFR_NUM % 100)) -eq 0 ]] || [[ "$XFR_NUM" =~ 00$ ]]; then
+                        echo "[$(date)] [$JOB_NAME] [PROGRESS] $line" >> "$LOG_FILE"
+                    fi
+                else
+                    # Stats und finale Zeilen immer loggen
+                    echo "[$(date)] [$JOB_NAME] [INIT] $line" >> "$LOG_FILE"
+                fi
             done
         
         # Prüfe Exit-Code (pipe status vom rsync)

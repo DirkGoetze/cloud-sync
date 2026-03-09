@@ -295,6 +295,22 @@ def process_log_line(line):
                 if match:
                     job['init_transferred'] = f"{match.group(1)} {match.group(2)}"
         
+        elif action == 'PROGRESS':
+            # Live-Fortschritt während initialer Sync
+            # Format: bytes  %  rate  time (xfr#N, to-chk=M/T) oder (xfr#N, ir-chk=M/T)
+            match = re.search(r'([\d,]+)\s+(\d+)%\s+([\d.]+\w+/s).*xfr#(\d+).*(?:to-chk|ir-chk)=(\d+)/(\d+)', message)
+            if match:
+                job['status'] = 'initializing'
+                job['is_initializing'] = True
+                job['init_progress'] = {
+                    'bytes': match.group(1),
+                    'percent': int(match.group(2)),
+                    'rate': match.group(3),
+                    'files_transferred': int(match.group(4)),
+                    'files_remaining': int(match.group(5)),
+                    'files_total': int(match.group(6))
+                }
+        
         elif action == 'SYNC':
             # Sync-Event - extrahiere Dateiname und Größe
             if 'CREATE' in message or 'MODIFY' in message or 'MOVED_TO' in message:

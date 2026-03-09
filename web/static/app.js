@@ -211,11 +211,23 @@ function createJobCard(job) {
                 ${job.status === 'initializing' ? `
                     <div class="init-info-compact">
                         <div class="init-title">⏳ Initiale Synchronisation läuft...</div>
-                        <div class="init-details">
-                            ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : '<span>📊 Dateien: wird ermittelt...</span>'}
-                            ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : '<span>💾 Größe: wird ermittelt...</span>'}
-                            ${job.init_transferred ? `<span>📤 Übertragen: ${job.init_transferred}</span>` : ''}
-                        </div>
+                        ${job.init_progress ? `
+                            <div class="init-progress-bar">
+                                <div class="init-progress-fill" style="width: ${job.init_progress.percent}%"></div>
+                                <div class="init-progress-text">${job.init_progress.percent}%</div>
+                            </div>
+                            <div class="init-details">
+                                <span>📁 ${job.init_progress.files_transferred} / ${job.init_progress.files_total} Dateien</span>
+                                <span>⚡ ${job.init_progress.rate}</span>
+                                <span>⏳ ${job.init_progress.files_remaining} verbleibend</span>
+                            </div>
+                        ` : `
+                            <div class="init-details">
+                                ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : '<span>📊 Dateien: wird ermittelt...</span>'}
+                                ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : '<span>💾 Größe: wird ermittelt...</span>'}
+                                ${job.init_transferred ? `<span>📤 Übertragen: ${job.init_transferred}</span>` : ''}
+                            </div>
+                        `}
                     </div>
                 ` : ''}
                 
