@@ -116,27 +116,27 @@ function createJobCard(job) {
     switch(job.status) {
         case 'syncing':
             statusClass = 'syncing';
-            statusText = '🔄 Synchronisiert...';
+            statusText = 'Synchronisiert...';
             break;
         case 'initializing':
             statusClass = 'initializing';
-            statusText = '⏳ Initialisierung...';
+            statusText = 'Initialisierung...';
             break;
         case 'ready':
             statusClass = 'ready';
-            statusText = '✅ Bereit';
+            statusText = 'Bereit';
             break;
         case 'error':
             statusClass = 'error';
-            statusText = '❌ Fehler';
+            statusText = 'Fehler';
             break;
         case 'down':
             statusClass = 'down';
-            statusText = '🚫 Inaktiv';
+            statusText = 'Inaktiv';
             break;
         default:
             statusClass = 'unknown';
-            statusText = '❓ Unbekannt';
+            statusText = 'Unbekannt';
     }
     
     return `
