@@ -242,7 +242,6 @@ watch_and_sync() {
             fi
             
             # Ermittle Dateigröße und Name
-            FILENAME=$(basename "$FILE")
             FILESIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "unknown")
             if [ "$FILESIZE" != "unknown" ]; then
                 FILESIZE_MB=$(awk "BEGIN {printf \"%.2f\", $FILESIZE/1024/1024}")
@@ -251,8 +250,8 @@ watch_and_sync() {
                 SIZE_INFO="unknown size"
             fi
             
-            # Log Start
-            echo "[$(date)] [$JOB_NAME] [SYNC] $EVENT: $FILENAME ($SIZE_INFO)" >> "$LOG_FILE"
+            # Log Start mit relativem Pfad
+            echo "[$(date)] [$JOB_NAME] [SYNC] $EVENT: $RELATIVE_PATH ($SIZE_INFO)" >> "$LOG_FILE"
             
             # Starte Timer
             START_TIME=$(date +%s)

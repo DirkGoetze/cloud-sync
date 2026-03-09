@@ -279,14 +279,14 @@ function createSyncItem(sync) {
     
     return `
         <div class="sync-item ${eventClass}">
-            <div class="sync-header">
-                <div class="sync-timestamp">${formatTimestamp(sync.timestamp)}</div>
+            <div class="sync-file-row">
+                <div class="sync-file">${fileInfo}</div>
                 ${statusBadge}
             </div>
-            <div class="sync-file">${fileInfo}</div>
-            ${additionalInfo.length > 0 ? `
-                <div class="sync-meta">${additionalInfo.join(' • ')}</div>
-            ` : ''}
+            <div class="sync-meta-row">
+                <span class="sync-timestamp">${formatTimestamp(sync.timestamp)}</span>
+                ${additionalInfo.length > 0 ? `<span>${additionalInfo.join(' • ')}</span>` : ''}
+            </div>
         </div>
     `;
 }
