@@ -186,15 +186,16 @@ def process_log_line(line):
     timestamp = parsed['timestamp']
     
     with status_lock:
+        # Ignoriere DEFAULTS und SYSTEM Job-Namen
+        if job_name in ['DEFAULTS', 'SYSTEM']:
+            if job_name == 'SYSTEM' and action == 'STARTUP':
+                status_data['service_start'] = timestamp.isoformat()
+            status_data['last_update'] = datetime.now().isoformat()
+            return
+        
         job = status_data['jobs'][job_name]
         job['last_activity'] = timestamp.isoformat()
         status_data['last_update'] = datetime.now().isoformat()
-        
-        # System-Events (STARTUP, SHUTDOWN)
-        if job_name == 'SYSTEM':
-            if action == 'STARTUP':
-                status_data['service_start'] = timestamp.isoformat()
-            return
         
         # Job-Status basierend auf Aktion
         if action == 'START':
@@ -332,8 +333,13 @@ def get_status():
     """API: Aktueller Status aller Jobs"""
     with status_lock:
         # Konvertiere defaultdict zu regulärem dict und deque zu list
+        # Filtere Jobs ohne source/destination (z.B. DEFAULTS)
         jobs_data = {}
         for job_name, job_info in status_data['jobs'].items():
+            # Überspringe Jobs ohne source oder destination
+            if not job_info['source'] or not job_info['destination']:
+                continue
+            
             jobs_data[job_name] = {
                 'name': job_info['name'],
                 'source': job_info['source'],
