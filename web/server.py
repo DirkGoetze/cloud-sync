@@ -107,7 +107,8 @@ def parse_config():
             match = re.match(r'^\[([^\]]+)\]', line)
             if match:
                 current_job = match.group(1)
-                if current_job != 'DEFAULTS':
+                # Ignoriere DEFAULTS und WEB-UI Sections
+                if current_job not in ['DEFAULTS', 'WEB-UI']:
                     jobs[current_job] = {
                         'name': current_job,
                         'source': '',
@@ -116,7 +117,7 @@ def parse_config():
                     }
                 continue
             
-            if not current_job or current_job == 'DEFAULTS':
+            if not current_job or current_job in ['DEFAULTS', 'WEB-UI']:
                 continue
             
             # source= Zeile
