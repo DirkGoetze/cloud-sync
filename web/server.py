@@ -306,8 +306,8 @@ def process_log_line(line):
             if match_files:
                 job['init_files_current'] = match_files.group(1)
             
-            # Parse Größe
-            match_size = re.search(r'Größe:\s*([\d.]+)\s*(\w+)', message)
+            # Parse Größe (akzeptiere sowohl Punkt als auch Komma als Dezimaltrennzeichen)
+            match_size = re.search(r'Größe:\s*([\d.,]+)\s*(\w+)', message)
             if match_size:
                 job['init_size_current'] = f"{match_size.group(1)} {match_size.group(2)}"
         
