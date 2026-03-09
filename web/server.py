@@ -47,6 +47,8 @@ status_data = {
         'init_files': None,
         'init_size': None,
         'init_transferred': None,
+        'init_files_current': None,  # Live-Counter während Initialisierung
+        'init_size_current': None,   # Live-Größe während Initialisierung
         'init_status': None,
         'is_syncing': False,
         'is_initializing': False
