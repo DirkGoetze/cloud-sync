@@ -46,6 +46,7 @@ status_data = {
         'parameters': {},
         'init_files': None,
         'init_size': None,
+        'init_transferred': None,
         'init_status': None,
         'is_syncing': False,
         'is_initializing': False
@@ -286,9 +287,13 @@ def process_log_line(line):
                 if match:
                     job['init_files'] = match.group(1).replace(',', '')
             elif 'Total file size' in message:
-                match = re.search(r'Total file size:\s*([\d.]+)\s*(\w+)', message)
+                match = re.search(r'Total file size:\s*([\d.,]+)\s*(\w+)', message)
                 if match:
                     job['init_size'] = f"{match.group(1)} {match.group(2)}"
+            elif 'Total transferred' in message:
+                match = re.search(r'Total transferred[^:]*:\s*([\d.,]+)\s*(\w+)', message)
+                if match:
+                    job['init_transferred'] = f"{match.group(1)} {match.group(2)}"
         
         elif action == 'SYNC':
             # Sync-Event - extrahiere Dateiname und Größe
@@ -417,6 +422,7 @@ def get_status():
                 'parameters': job_info['parameters'],
                 'init_files': job_info['init_files'],
                 'init_size': job_info['init_size'],
+                'init_transferred': job_info['init_transferred'],
                 'init_status': job_info['init_status'],
                 'is_syncing': job_info['is_syncing'],
                 'is_initializing': job_info['is_initializing']

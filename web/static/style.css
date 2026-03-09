@@ -325,28 +325,36 @@ header h1 {
 /* Init-Info Box kompakt */
 .init-info-compact {
     background: linear-gradient(135deg, #fef3c7, #fde68a);
-    padding: 0.75rem;
-    border-radius: 6px;
+    padding: 1rem;
+    border-radius: 8px;
     margin: 0.75rem 0;
-    border-left: 3px solid var(--warning-color);
+    border-left: 4px solid var(--warning-color);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
 .init-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
     color: #78350f;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .init-details {
     display: flex;
-    gap: 1rem;
-    font-size: 0.75rem;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: #92400e;
 }
 
 .init-details span {
     display: inline-block;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
 }
 
 /* Recent Syncs kompakt */

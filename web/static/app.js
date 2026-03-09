@@ -214,6 +214,7 @@ function createJobCard(job) {
                         <div class="init-details">
                             ${job.init_files ? `<span>📊 Dateien: ${job.init_files}</span>` : ''}
                             ${job.init_size ? `<span>💾 Größe: ${job.init_size}</span>` : ''}
+                            ${job.init_transferred ? `<span>📤 Übertragen: ${job.init_transferred}</span>` : ''}
                         </div>
                     </div>
                 ` : ''}
