@@ -131,30 +131,40 @@ watch_and_sync() {
     if [[ -n "$RSYNC_OPTS" ]]; then
         echo "[$(date)] [$JOB_NAME] [INIT] Starte initiale Synchronisation..." >> "$LOG_FILE"
         
-        # Verwende --info=progress2 für Live-Fortschritt, --no-inc-recursive für sofortige Dateianzahl
-        RSYNC_OPTS_PROGRESS="${RSYNC_OPTS//-v/} --info=progress2 --no-inc-recursive --stats"
+        # Führe rsync mit verbose und stats aus
+        RSYNC_OPTS_INIT="$RSYNC_OPTS --stats"
         
-        # Führe rsync aus und parse mit awk (robuster als grep/while)
-        rsync $RSYNC_OPTS_PROGRESS "$SOURCE/" "$TARGET/" 2>&1 | \
-            awk -v job="$JOB_NAME" '
-                /xfr#[0-9]+/ {
-                    # Extrahiere xfr Nummer
-                    match($0, /xfr#([0-9]+)/, arr);
-                    xfr = arr[1];
-                    # Logge erste 10, dann jedes 50. bis 1000, dann jedes 100.
-                    if (xfr <= 10 || (xfr < 1000 && xfr % 50 == 0) || (xfr >= 1000 && xfr % 100 == 0)) {
-                        print "[" strftime("%a %d. %b %H:%M:%S UTC %Y") "] [" job "] [PROGRESS] " $0;
-                        fflush();
-                    }
-                    next;
-                }
-                /Number of files|Total file size|Total transferred|speedup/ {
-                    print "[" strftime("%a %d. %b %H:%M:%S UTC %Y") "] [" job "] [INIT] " $0;
-                    fflush();
-                }
-            ' >> "$LOG_FILE"
+        # Zähler für übertragene Dateien
+        FILE_COUNT=0
+        LAST_LOG_TIME=$(date +%s)
         
-        # Prüfe Exit-Code (PIPESTATUS[0] = rsync)
+        # Führe rsync aus und parse Output
+        rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1 | \
+            while IFS= read -r line; do
+                # Überspringe Leerzeilen
+                [[ -z "$line" ]] && continue
+                
+                # Datei-Transfers erkennen (Zeilen die mit Dateinamen beginnen, keine Verzeichnisse)
+                if [[ ! "$line" =~ /$ ]] && \
+                   [[ ! "$line" =~ ^(sending|sent|received|total|deleting|Number|speedup|building|created) ]] && \
+                   [[ "$line" =~ ^[a-zA-Z0-9._-] ]]; then
+                    ((FILE_COUNT++))
+                    
+                    # Logge Fortschritt alle 10 Sekunden ODER alle 100 Dateien
+                    CURRENT_TIME=$(date +%s)
+                    TIME_DIFF=$((CURRENT_TIME - LAST_LOG_TIME))
+                    
+                    if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
+                        echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT" >> "$LOG_FILE"
+                        LAST_LOG_TIME=$CURRENT_TIME
+                    fi
+                # Stats am Ende
+                elif [[ "$line" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
+                    echo "[$(date)] [$JOB_NAME] [INIT] $line" >> "$LOG_FILE"
+                fi
+            done
+        
+        # Prüfe Exit-Code
         RSYNC_EXIT=${PIPESTATUS[0]}
         if [ $RSYNC_EXIT -eq 0 ]; then
             echo "[$(date)] [$JOB_NAME] [SUCCESS] Initiale Synchronisation erfolgreich abgeschlossen" >> "$LOG_FILE"
