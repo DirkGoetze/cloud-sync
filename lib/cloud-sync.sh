@@ -162,16 +162,21 @@ watch_and_sync() {
         return
     fi
     
-    # Überwachung
-    inotifywait -m -r -e "$EVENTS" "$SOURCE" --format '%e %w%f' |
+    echo "[$(date)] [$JOB_NAME] [START] Starte Live-Überwachung für Events: $EVENTS" >> "$LOG_FILE"
+    
+    # Überwachung (mit -q für quiet, ohne Statusmeldungen)
+    inotifywait -m -r -q -e "$EVENTS" "$SOURCE" --format '%e %w%f' 2>&1 |
     while read EVENT FILE
     do
+        # Debug: Logge empfangenes Event
+        echo "[$(date)] [$JOB_NAME] [DEBUG] Event empfangen: EVENT=$EVENT FILE=$FILE" >> "$LOG_FILE"
+        
         RELATIVE_PATH="${FILE#$SOURCE/}"
         TARGET_FILE="$TARGET/$RELATIVE_PATH"
         TARGET_DIR=$(dirname "$TARGET_FILE")
         
         # Löschungen behandeln
-        if [[ "$EVENT" =~ DELETE|MOVED_FROM ]]; then
+        if [[ "$EVENT" == "DELETE" || "$EVENT" == "MOVED_FROM" ]]; then
             if [[ "$SYNC_DELETE" == "true" ]]; then
                 FILENAME=$(basename "$TARGET_FILE")
                 echo "[$(date)] [$JOB_NAME] [DELETE] Lösche: $FILENAME" >> "$LOG_FILE"
