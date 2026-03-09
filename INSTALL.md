@@ -25,7 +25,7 @@ sudo ./install.sh
 
 Die Server-IP wird automatisch erkannt und am Ende der Installation angezeigt.
 
-Im Browser: **http://SERVER-IP:8080**
+Im Browser: <http://SERVER-IP:8080>
 
 (Die IP-Adresse wird während der Installation automatisch ermittelt und angezeigt)
 
@@ -50,6 +50,7 @@ WEB_PORT="8080"              # Gewünschter Port (empfohlen: >1024)
 ### Nach der Installation
 
 Die erkannte IP-Adresse wird gespeichert in:
+
 ```bash
 /usr/local/bin/cloud-sync/web/config.py
 ```

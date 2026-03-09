@@ -3,16 +3,18 @@
 ## Für alle Bash-Scripts (.sh Dateien)
 
 **ZWINGEND erforderlich:**
+
 - ✅ Encoding: **UTF-8** (OHNE BOM)
 - ✅ Zeilenumbrüche: **LF** (Linux)
 
 **NICHT verwenden:**
+
 - ❌ UTF-8 with BOM
 - ❌ CRLF (Windows)
 
 ## In VS Code einstellen
 
-### Aktuellen Datei-Encoding prüfen/ändern:
+### Aktuellen Datei-Encoding prüfen/ändern
 
 1. Öffne die Datei (z.B. `cloud-sync.sh`)
 2. Unten rechts in der Statusleiste:
@@ -42,11 +44,12 @@ Python-Dateien (.py) können UTF-8 with BOM verwenden, aber UTF-8 ohne BOM ist b
 
 ## Probleme vermeiden
 
-### Vor jedem Upload zum Server:
+### Vor jedem Upload zum Server
 
 1. Prüfe alle .sh Dateien auf korrektes Encoding
 2. Teste das Script lokal (wenn möglich)
 3. Nach dem Kopieren zum Server:
+
    ```bash
    # CRLF zu LF konvertieren (falls nötig)
    dos2unix /pfad/zur/datei.sh
@@ -57,13 +60,15 @@ Python-Dateien (.py) können UTF-8 with BOM verwenden, aber UTF-8 ohne BOM ist b
 
 ## Symptome falscher Encodierung
 
-### BOM in Bash-Scripts:
-```
+### BOM in Bash-Scripts
+
+```bash
 /bin/bash^M: bad interpreter: No such file or directory
 ```
 
-### CRLF Zeilenumbrüche:
-```
+### CRLF Zeilenumbrüche
+
+```bash
 syntax error near unexpected token `$'\r''
 ```
 

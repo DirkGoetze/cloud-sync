@@ -283,7 +283,7 @@ cleanup() {
 
 trap cleanup SIGTERM SIGINT
 
-# Pr�fe ob Konfigurationsdatei existiert
+# Prüfe ob Konfigurationsdatei existiert
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "[$(date)] [SYSTEM] [FEHLER] Konfigurationsdatei nicht gefunden: $CONFIG_FILE" >> "$LOG_FILE"
     exit 1

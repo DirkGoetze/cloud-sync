@@ -4,7 +4,7 @@ Automatische Synchronisation mehrerer Ordnerpaare mit inotify-basierter Echtzeit
 
 ## Projektstruktur
 
-```
+```plain
 cloud-sync/
 ├── lib/                    # Scripte
 │   └── cloud-sync.sh
@@ -41,6 +41,7 @@ sudo ./install.sh
 ```
 
 **Das Script führt automatisch aus:**
+
 - ✅ Ermittlung der Server-IP-Adresse
 - ✅ Installation aller Abhängigkeiten (Python, Flask, inotify-tools, rsync)
 - ✅ Kopieren der Dateien nach `/usr/local/bin/cloud-sync`
@@ -49,11 +50,13 @@ sudo ./install.sh
 - ✅ Start aller Services
 
 **Nach der Installation:**
-- Dashboard erreichbar unter: **http://SERVER-IP:8080** (IP wird automatisch erkannt)
+
+- Dashboard erreichbar unter: <http://SERVER-IP:8080> (IP wird automatisch erkannt)
 - Sync-Service läuft automatisch
 - Server-IP wird in `/usr/local/bin/cloud-sync/web/config.py` gespeichert
 
 **Anpassung des Ports:**
+
 ```bash
 # Öffne das Script VOR der Installation und ändere die Zeile:
 WEB_PORT="8080"              # Gewünschter Port
@@ -108,9 +111,10 @@ sudo systemctl start cloud-sync-web.service
 
 **Zugriff:**
 
-Dashboard ist erreichbar unter: **http://SERVER-IP:8080**
+Dashboard ist erreichbar unter: <http://SERVER-IP:8080>
 
 **Features:**
+
 - ✅ Live-Status aller Sync-Jobs
 - ✅ Letzte 10 Synchronisationen pro Job
 - ✅ Gesamt-Statistiken (Syncs, Fehler)
@@ -146,17 +150,17 @@ destination='/pfad/zum/zielordner'
 
 **Sync-Parameter ([DEFAULTS] und [JobName]):**
 
-| Parameter | Beschreibung | Default |
-|-----------|--------------|---------|
-| `new` | Neue Dateien werden synchronisiert | `true` |
-| `change` | Änderungen an bestehenden Dateien werden synchronisiert | `true` |
-| `delete` | Gelöschte Dateien werden auch im Ziel gelöscht | `false` |
+| Parameter | Beschreibung                                             | Default |
+| --------- | -------------------------------------------------------- | ------- |
+| `new`     | Neue Dateien werden synchronisiert                       | `true`  |
+| `change`  | Änderungen an bestehenden Dateien werden synchronisiert  | `true`  |
+| `delete`  | Gelöschte Dateien werden auch im Ziel gelöscht           | `false` |
 
 **Web-UI Parameter ([WEB-UI]):**
 
-| Parameter | Beschreibung | Default |
-|-----------|--------------|---------|
-| `refresh` | Dashboard-Aktualisierungsintervall in Sekunden | `10` |
+| Parameter | Beschreibung                                   | Default |
+| --------- | ---------------------------------------------- | ------- |
+| `refresh` | Dashboard-Aktualisierungsintervall in Sekunden | `10`    |
 
 ### Beispiel-Konfiguration
 
@@ -191,11 +195,13 @@ sudo systemctl restart cloud-sync.service
 ### Sync-Service
 
 **Status prüfen:**
+
 ```bash
 sudo systemctl status cloud-sync.service
 ```
 
 **Logs anzeigen:**
+
 ```bash
 sudo tail -f /usr/local/bin/cloud-sync/log/cloud-sync.log
 # oder
@@ -203,11 +209,13 @@ sudo journalctl -u cloud-sync.service -f
 ```
 
 **Service stoppen:**
+
 ```bash
 sudo systemctl stop cloud-sync.service
 ```
 
 **Service neu starten:**
+
 ```bash
 sudo systemctl restart cloud-sync.service
 ```
@@ -215,21 +223,25 @@ sudo systemctl restart cloud-sync.service
 ### Web-Dashboard
 
 **Status prüfen:**
+
 ```bash
 sudo systemctl status cloud-sync-web.service
 ```
 
 **Logs anzeigen:**
+
 ```bash
 sudo tail -f /usr/local/bin/cloud-sync/log/cloud-sync-web.log
 ```
 
 **Service neu starten:**
+
 ```bash
 sudo systemctl restart cloud-sync-web.service
 ```
 
 **Dashboard öffnen:**
+
 ```bash
 # Im Browser: http://SERVER-IP:8080
 # oder lokal auf dem Server:
@@ -238,19 +250,22 @@ curl http://localhost:8080
 
 ## Anforderungen
 
-### Sync-Service
+### Sync-Service (benötigt für die Kernfunktionalität)
+
 - `inotify-tools` (für inotifywait)
 - `rsync`
 - `bash`
 - Systemd
 
 ### Web-Dashboard (optional)
+
 - `python3` (≥ 3.7)
 - `python3-flask`
 
 ### Installation der Abhängigkeiten
 
 **Debian/Ubuntu:**
+
 ```bash
 # Sync-Service
 sudo apt-get install inotify-tools rsync
@@ -260,6 +275,7 @@ sudo apt-get install python3 python3-flask
 ```
 
 **RHEL/CentOS:**
+
 ```bash
 # Sync-Service
 sudo yum install inotify-tools rsync
@@ -271,7 +287,7 @@ sudo pip3 install flask
 
 ## Funktionsweise
 
-- **Initiale Synchronisation beim Start**: 
+- **Initiale Synchronisation beim Start**
   - `new=true, change=true`: Alle neuen und geänderten Dateien werden synchronisiert
   - `new=true, change=false`: Nur neue Dateien, keine Updates existierender
   - `new=false, change=true`: Nur Updates existierender Dateien, keine neuen
@@ -284,18 +300,20 @@ sudo pip3 install flask
 - **Multi-Job**: Mehrere Sync-Paare werden parallel überwacht
 - **Logging**: Alle Aktivitäten werden nach `/usr/local/bin/cloud-sync/log/cloud-sync.log` protokolliert
 
-## Web-Dashboard
+## Web-Dashboard (Optionale Erweiterung)
 
 Das Web-Dashboard bietet eine komfortable Oberfläche zur Überwachung aller Sync-Jobs in Echtzeit.
 
 ### Dashboard-Features
 
 **Übersichtsseite:**
+
 - 📊 Service-Status und Laufzeit
 - 📈 Gesamt-Statistiken (Jobs, Syncs, Fehler)
 - 🔄 Automatische Aktualisierung alle 2 Sekunden
 
 **Pro Job:**
+
 - ✅ Status-Indikator (Running/Error)
 - 📁 Quell- und Zielpfade
 - 📊 Statistiken (Sync-Anzahl, Fehler, letzte Aktivität)
@@ -303,12 +321,14 @@ Das Web-Dashboard bietet eine komfortable Oberfläche zur Überwachung aller Syn
 - 📄 Letzte 10 Synchronisationen mit Timestamp
 
 **Live-Log:**
+
 - 📜 Echtzeit-Anzeige der letzten 50 Log-Zeilen
 - 🔄 Auto-Scroll und Auto-Refresh
 
 ### Technische Details
 
 Der Web-Server:
+
 - Läuft auf Port **8080**
 - Parst `/usr/local/bin/cloud-sync/log/cloud-sync.log` in Echtzeit
 - Keine Änderungen am Bash-Script erforderlich
@@ -316,6 +336,7 @@ Der Web-Server:
 - REST-API für eigene Integrationen
 
 **API-Endpunkte:**
+
 - `GET /api/status` - JSON mit allen Job-Informationen
 - `GET /api/logs` - Letzte 100 Log-Zeilen
 
@@ -329,6 +350,7 @@ sudo ./uninstall.sh
 ```
 
 Das Script entfernt:
+
 - Alle Services (cloud-sync und cloud-sync-web)
 - Installierte Dateien in `/usr/local/bin/cloud-sync`
 - Systemd Service-Dateien
@@ -357,7 +379,7 @@ sudo apt-get install inotify-tools rsync
 
 ### Web-Dashboard nicht erreichbar
 
-**Problem:** http://192.168.20.123 zeigt keine Seite
+**Problem:** <http://192.168.20.123> zeigt keine Seite
 
 ```bash
 # Prüfe ob Service läuft
