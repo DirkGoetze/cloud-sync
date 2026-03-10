@@ -410,40 +410,47 @@ get_sections_ini() {
 # END: INI Handling
 # ***************************************************************************
 
+# ***************************************************************************
+# BEGIN: Helper Functions
+# ***************************************************************************
+
 # ===========================================================================
-# parse_config
+# get_formated_size
 # ---------------------------------------------------------------------------
-# Function.: parse INI file and return job configurations
-# Parameter: none
-# Return...: job configurations in format: name|source|dest|new|change|delete
+# Function.: Format bytes into human-readable size string
+# Parameter: bytes = size in bytes
+# Return...: formatted size string (e.g., "1.23 MB")
 # ===========================================================================
-parse_config() {
-    #-- Read defaults from DEFAULTS section with fallback values ------------
-    local default_new="$(get_value_ini "DEFAULTS" "new" "true")"
-    local default_change="$(get_value_ini "DEFAULTS" "change" "true")"
-    local default_delete="$(get_value_ini "DEFAULTS" "delete" "false")"
+get_formated_size() {
+    #-- Read parameter ------------------------------------------------------
+    local bytes=$1
     
-    #-- Iterate through all sections ----------------------------------------
-    while IFS= read -r section; do
-        #-- Skip DEFAULTS and WEB-UI sections -------------------------------
-        [[ "$section" == "DEFAULTS" || "$section" == "WEB-UI" ]] && continue
-        
-        #-- Read job data using INI functions -------------------------------
-        local source="$(get_value_ini "$section" "source")"
-        local destination="$(get_value_ini "$section" "destination")"
-        
-        #-- Only process jobs with source and destination -------------------
-        if [[ -n "$source" && -n "$destination" ]]; then
-            #-- Read job-specific values with default fallback --------------
-            local final_new="$(get_value_ini "$section" "new" "$default_new")"
-            local final_change="$(get_value_ini "$section" "change" "$default_change")"
-            local final_delete="$(get_value_ini "$section" "delete" "$default_delete")"
-            
-            #-- Output job configuration ------------------------------------
-            echo "$section|$source|$destination|$final_new|$final_change|$final_delete"
-        fi
-    done < <(get_sections_ini)
+    #-- Validate parameter --------------------------------------------------
+    if [[ -z "$bytes" || ! "$bytes" =~ ^[0-9]+$ ]]; then
+        echo "0 Bytes"
+        return 1
+    fi
+    
+    #-- Format based on size ------------------------------------------------
+    if [[ $bytes -lt 1024 ]]; then
+        echo "$bytes Bytes"
+    elif [[ $bytes -lt 1048576 ]]; then
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1024}") KB"
+    elif [[ $bytes -lt 1073741824 ]]; then
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1048576}") MB"
+    elif [[ $bytes -lt 1099511627776 ]]; then
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1073741824}") GB"
+    else
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1099511627776}") TB"
+    fi
+    
+    #-- Return success ------------------------------------------------------
+    return 0
 }
+
+# ***************************************************************************
+# END: Helper Functions
+# ***************************************************************************
 
 # Funktion für einzelnes Sync-Paar
 watch_and_sync() {
@@ -454,8 +461,8 @@ watch_and_sync() {
     local SYNC_CHANGE="$5"
     local SYNC_DELETE="$6"
     
-    echo "[$(date)] [$JOB_NAME] [START] Starte Überwachung: $SOURCE -> $TARGET" >> "$LOG_FILE"
-    echo "[$(date)] [$JOB_NAME] [CONFIG] Parameter: new=$SYNC_NEW, change=$SYNC_CHANGE, delete=$SYNC_DELETE" >> "$LOG_FILE"
+    log_start "$JOB_NAME" "Starte Überwachung: $SOURCE -> $TARGET"
+    log_config "$JOB_NAME" "Parameter: new=$SYNC_NEW, change=$SYNC_CHANGE, delete=$SYNC_DELETE"
     
     # Baue rsync Optionen für initiale Synchronisation
     local RSYNC_OPTS="-av"
@@ -471,7 +478,7 @@ watch_and_sync() {
     elif [[ "$SYNC_NEW" == "false" && "$SYNC_CHANGE" == "true" ]]; then
         RSYNC_OPTS="$RSYNC_OPTS --existing"
     elif [[ "$SYNC_NEW" == "false" && "$SYNC_CHANGE" == "false" ]]; then
-        echo "[$(date)] [$JOB_NAME] [INFO] Keine initiale Synchronisation (new=false, change=false)" >> "$LOG_FILE"
+        log_info "$JOB_NAME" "Keine initiale Synchronisation (new=false, change=false)"
         RSYNC_OPTS=""
     fi
     
@@ -479,7 +486,7 @@ watch_and_sync() {
     
     # Initiale Synchronisation mit Stats
     if [[ -n "$RSYNC_OPTS" ]]; then
-        echo "[$(date)] [$JOB_NAME] [INIT] Starte initiale Synchronisation..." >> "$LOG_FILE"
+        log_init "$JOB_NAME" "Starte initiale Synchronisation..."
         
         # Führe rsync mit custom output format für Größen-Tracking
         RSYNC_OPTS_INIT="$RSYNC_OPTS --stats --out-format=%l|%n"
@@ -488,22 +495,6 @@ watch_and_sync() {
         FILE_COUNT=0
         TOTAL_BYTES=0
         LAST_LOG_TIME=$(date +%s)
-        
-        # Hilfsfunktion für lesbare Größen
-        format_size() {
-            local bytes=$1
-            if [[ $bytes -lt 1024 ]]; then
-                echo "$bytes Bytes"
-            elif [[ $bytes -lt 1048576 ]]; then
-                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1024}") KB"
-            elif [[ $bytes -lt 1073741824 ]]; then
-                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1048576}") MB"
-            elif [[ $bytes -lt 1099511627776 ]]; then
-                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1073741824}") GB"
-            else
-                echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1099511627776}") TB"
-            fi
-        }
         
         # Führe rsync aus und parse Output (Process Substitution vermeidet Subshell)
         while IFS='|' read -r size filename; do
@@ -520,22 +511,22 @@ watch_and_sync() {
                 TIME_DIFF=$((CURRENT_TIME - LAST_LOG_TIME))
                 
                 if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
-                    FORMATTED_SIZE=$(format_size $TOTAL_BYTES)
-                    echo "[$(date)] [$JOB_NAME] [PROGRESS] Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE" >> "$LOG_FILE"
+                    FORMATTED_SIZE=$(get_formated_size $TOTAL_BYTES)
+                    log_progress "$JOB_NAME" "Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE"
                     LAST_LOG_TIME=$CURRENT_TIME
                 fi
             # Stats-Zeilen (ohne Pipe)
             elif [[ "$size" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
-                echo "[$(date)] [$JOB_NAME] [INIT] $size" >> "$LOG_FILE"
+                log_init "$JOB_NAME" "$size"
             fi
         done < <(rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1)
         
         # Prüfe Exit-Code
         RSYNC_EXIT=$?
         if [ $RSYNC_EXIT -eq 0 ]; then
-            echo "[$(date)] [$JOB_NAME] [SUCCESS] Initiale Synchronisation erfolgreich abgeschlossen" >> "$LOG_FILE"
+            log_success "$JOB_NAME" "Initiale Synchronisation erfolgreich abgeschlossen"
         else
-            echo "[$(date)] [$JOB_NAME] [FEHLER] Initiale Synchronisation fehlgeschlagen (Exit: $RSYNC_EXIT)" >> "$LOG_FILE"
+            log_error "$JOB_NAME" "Initiale Synchronisation fehlgeschlagen (Exit: $RSYNC_EXIT)"
         fi
     fi
     
@@ -547,18 +538,18 @@ watch_and_sync() {
     
     # Wenn keine Events aktiviert sind, beende die Funktion
     if [[ -z "$EVENTS" ]]; then
-        echo "[$(date)] [$JOB_NAME] [WARNUNG] Keine Sync-Events aktiviert!" >> "$LOG_FILE"
+        log_warning "$JOB_NAME" "Keine Sync-Events aktiviert!"
         return
     fi
     
-    echo "[$(date)] [$JOB_NAME] [START] Starte Live-Überwachung für Events: $EVENTS" >> "$LOG_FILE"
+    log_start "$JOB_NAME" "Starte Live-Überwachung für Events: $EVENTS"
     
     # Überwachung (mit -q für quiet, ohne Statusmeldungen)
     inotifywait -m -r -q -e "$EVENTS" "$SOURCE" --format '%e %w%f' 2>&1 |
     while read EVENT FILE
     do
         # Debug: Logge empfangenes Event
-        echo "[$(date)] [$JOB_NAME] [DEBUG] Event empfangen: EVENT=$EVENT FILE=$FILE" >> "$LOG_FILE"
+        log_debug "$JOB_NAME" "Event empfangen: EVENT=$EVENT FILE=$FILE"
         
         RELATIVE_PATH="${FILE#$SOURCE/}"
         TARGET_FILE="$TARGET/$RELATIVE_PATH"
@@ -568,14 +559,14 @@ watch_and_sync() {
         if [[ "$EVENT" == "DELETE" || "$EVENT" == "MOVED_FROM" ]]; then
             if [[ "$SYNC_DELETE" == "true" ]]; then
                 FILENAME=$(basename "$TARGET_FILE")
-                echo "[$(date)] [$JOB_NAME] [DELETE] Lösche: $FILENAME" >> "$LOG_FILE"
+                log_delete "$JOB_NAME" "Lösche: $FILENAME"
                 
                 if rm -rf "$TARGET_FILE" 2>&1 | while IFS= read -r line; do
-                    echo "[$(date)] [$JOB_NAME] [DELETE] $line" >> "$LOG_FILE"
+                    log_delete "$JOB_NAME" "$line"
                 done; [ ${PIPESTATUS[0]} -eq 0 ]; then
-                    echo "[$(date)] [$JOB_NAME] [SUCCESS] Löschung erfolgreich" >> "$LOG_FILE"
+                    log_success "$JOB_NAME" "Löschung erfolgreich"
                 else
-                    echo "[$(date)] [$JOB_NAME] [FEHLER] Löschung fehlgeschlagen" >> "$LOG_FILE"
+                    log_error "$JOB_NAME" "Löschung fehlgeschlagen"
                 fi
             fi
         else
@@ -601,14 +592,14 @@ watch_and_sync() {
             fi
             
             # Log Start mit relativem Pfad
-            echo "[$(date)] [$JOB_NAME] [SYNC] $EVENT: $RELATIVE_PATH ($SIZE_INFO)" >> "$LOG_FILE"
+            log_sync "$JOB_NAME" "$EVENT: $RELATIVE_PATH ($SIZE_INFO)"
             
             # Starte Timer
             START_TIME=$(date +%s)
             
             # Rsync mit Ausgabe-Präfix
             rsync $FILE_RSYNC_OPTS "$FILE" "$TARGET_FILE" 2>&1 | while IFS= read -r line; do
-                echo "[$(date)] [$JOB_NAME] [SYNC] $line" >> "$LOG_FILE"
+                log_sync "$JOB_NAME" "$line"
             done
             
             # Prüfe Exit-Code und logge Ergebnis
@@ -616,9 +607,9 @@ watch_and_sync() {
             if [ $RSYNC_EXIT -eq 0 ]; then
                 END_TIME=$(date +%s)
                 DURATION=$((END_TIME - START_TIME))
-                echo "[$(date)] [$JOB_NAME] [SUCCESS] Datei synchronisiert in ${DURATION}s" >> "$LOG_FILE"
+                log_success "$JOB_NAME" "Datei synchronisiert in ${DURATION}s"
             else
-                echo "[$(date)] [$JOB_NAME] [FEHLER] Rsync fehlgeschlagen (Exit: $RSYNC_EXIT)" >> "$LOG_FILE"
+                log_error "$JOB_NAME" "Rsync fehlgeschlagen (Exit: $RSYNC_EXIT)"
             fi
         fi
     done
@@ -626,7 +617,7 @@ watch_and_sync() {
 
 # Cleanup
 cleanup() {
-    echo "[$(date)] [SYSTEM] [SHUTDOWN] Stoppe Cloud-Sync Service (alle Jobs)" >> "$LOG_FILE"
+    log_shutdown "SYSTEM" "Stoppe Cloud-Sync Service (alle Jobs)"
     kill $(jobs -p) 2>/dev/null
     exit 0
 }
@@ -635,19 +626,19 @@ trap cleanup SIGTERM SIGINT
 
 # Prüfe ob Konfigurationsdatei existiert und lesbar ist
 if ! config_file="$(get_file_ini 2>&1)"; then
-    echo "[$(date)] [SYSTEM] [FEHLER] $config_file" >> "$LOG_FILE"
+    log_error "SYSTEM" "$config_file"
     exit 1
 fi
 
 # Log-Datei initialisieren
-echo "[$(date)] [SYSTEM] [STARTUP] ====== Cloud-Sync Service gestartet ======" >> "$LOG_FILE"
+log_startup "SYSTEM" "====== Cloud-Sync Service gestartet ======"
 
 # Konfiguration einlesen und Prozesse starten
 JOBS_STARTED=0
 while IFS='|' read -r JOB_NAME SOURCE DESTINATION SYNC_NEW SYNC_CHANGE SYNC_DELETE; do
     # Prüfe ob Quellordner existiert
     if [ ! -d "$SOURCE" ]; then
-        echo "[$(date)] [$JOB_NAME] [FEHLER] Quellordner nicht gefunden: $SOURCE" >> "$LOG_FILE"
+        log_error "$JOB_NAME" "Quellordner nicht gefunden: $SOURCE"
         continue
     fi
     
@@ -661,9 +652,9 @@ while IFS='|' read -r JOB_NAME SOURCE DESTINATION SYNC_NEW SYNC_CHANGE SYNC_DELE
 done < <(parse_config)
 
 if [ $JOBS_STARTED -eq 0 ]; then
-    echo "[$(date)] [SYSTEM] [WARNUNG] Keine gültigen Sync-Jobs gefunden!" >> "$LOG_FILE"
+    log_warning "SYSTEM" "Keine gültigen Sync-Jobs gefunden!"
     exit 1
 fi
 
-echo "[$(date)] [SYSTEM] [STARTUP] $JOBS_STARTED Sync-Job(s) gestartet" >> "$LOG_FILE"
+log_startup "SYSTEM" "$JOBS_STARTED Sync-Job(s) gestartet"
 wait
