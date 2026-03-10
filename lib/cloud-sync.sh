@@ -483,6 +483,36 @@ parse_config() {
     done < <(get_sections_ini)
 }
 
+
+prepare_rsync_options() {
+    local new="$1"
+    local change="$2"
+    local delete="$3"
+    
+    # Baue rsync Optionen für initiale Synchronisation
+    local options="-av"
+    
+    # Logik für new/change Kombination:
+    # new=true,  change=true  → Standard (-av): Neue + Änderungen
+    # new=true,  change=false → --ignore-existing: Nur neue Dateien
+    # new=false, change=true  → --existing: Nur Updates, keine neuen
+    # new=false, change=false → Keine initiale Sync
+    if [[ "$new" == "true" && "$change" == "false" ]]; then
+        options="$options --ignore-existing"
+    elif [[ "$new" == "false" && "$change" == "true" ]]; then
+        options="$options --existing"
+    elif [[ "$new" == "false" && "$change" == "false" ]]; then
+        options=""
+    fi
+    
+    [[ "$delete" == "true" ]] && options="$options --delete"
+    
+    # Führe rsync mit custom output format für Größen-Tracking
+    options="$options --stats --out-format=%l|%n"
+
+    echo "$options"
+}
+
 # ***************************************************************************
 # END: Helper Functions
 # ***************************************************************************
@@ -500,31 +530,11 @@ watch_and_sync() {
     log_config "$JOB_NAME" "Parameter: new=$SYNC_NEW, change=$SYNC_CHANGE, delete=$SYNC_DELETE"
     
     # Baue rsync Optionen für initiale Synchronisation
-    local RSYNC_OPTS="-av"
-    
-    # Logik für new/change Kombination:
-    # new=true,  change=true  → Standard (-av): Neue + Änderungen
-    # new=true,  change=false → --ignore-existing: Nur neue Dateien
-    # new=false, change=true  → --existing: Nur Updates, keine neuen
-    # new=false, change=false → Keine initiale Sync
-    
-    if [[ "$SYNC_NEW" == "true" && "$SYNC_CHANGE" == "false" ]]; then
-        RSYNC_OPTS="$RSYNC_OPTS --ignore-existing"
-    elif [[ "$SYNC_NEW" == "false" && "$SYNC_CHANGE" == "true" ]]; then
-        RSYNC_OPTS="$RSYNC_OPTS --existing"
-    elif [[ "$SYNC_NEW" == "false" && "$SYNC_CHANGE" == "false" ]]; then
-        log_info "$JOB_NAME" "Keine initiale Synchronisation (new=false, change=false)"
-        RSYNC_OPTS=""
-    fi
-    
-    [[ "$SYNC_DELETE" == "true" ]] && RSYNC_OPTS="$RSYNC_OPTS --delete"
+    local RSYNC_OPTS=$(prepare_rsync_options "$SYNC_NEW" "$SYNC_CHANGE" "$SYNC_DELETE")
     
     # Initiale Synchronisation mit Stats
     if [[ -n "$RSYNC_OPTS" ]]; then
         log_init "$JOB_NAME" "Starte initiale Synchronisation..."
-        
-        # Führe rsync mit custom output format für Größen-Tracking
-        RSYNC_OPTS_INIT="$RSYNC_OPTS --stats --out-format=%l|%n"
         
         # Zähler für Dateien und Größe
         FILE_COUNT=0
