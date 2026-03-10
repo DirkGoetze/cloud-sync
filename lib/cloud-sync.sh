@@ -2,97 +2,447 @@
 # filepath: /usr/local/bin/cloud-sync/lib/cloud-sync.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/../conf/cloud-sync.conf"
-LOG_FILE="$SCRIPT_DIR/../log/cloud-sync.log"
 
-# Funktion zum Parsen der INI-Datei
-parse_config() {
-    local current_job=""
-    local source=""
-    local destination=""
-    local job_new=""
-    local job_change=""
-    local job_delete=""
-    
-    # Globale Defaults
-    local default_new="true"
-    local default_change="true"
-    local default_delete="false"
-    
-    while IFS= read -r line; do
-        # Leerzeilen und Kommentare überspringen
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        
-        # Job-Name [Section]
-        if [[ "$line" =~ ^\[([^]]+)\] ]]; then
-            # Vorherigen Job verarbeiten (aber nicht DEFAULTS)
-            if [[ -n "$current_job" && "$current_job" != "DEFAULTS" && -n "$source" && -n "$destination" ]]; then
-                # Verwende Job-Werte oder falle auf Defaults zurück
-                local final_new="${job_new:-$default_new}"
-                local final_change="${job_change:-$default_change}"
-                local final_delete="${job_delete:-$default_delete}"
-                echo "$current_job|$source|$destination|$final_new|$final_change|$final_delete"
-            fi
-            
-            current_job="${BASH_REMATCH[1]}"
-            source=""
-            destination=""
-            job_new=""
-            job_change=""
-            job_delete=""
-            continue
-        fi
-        
-        # source= Zeile
-        if [[ "$line" =~ ^[[:space:]]*source[[:space:]]*=[[:space:]]*[\'\"]?([^\'\"]+)[\'\"]?[[:space:]]*$ ]]; then
-            source="${BASH_REMATCH[1]}"
-            continue
-        fi
-        
-        # destination= Zeile
-        if [[ "$line" =~ ^[[:space:]]*destination[[:space:]]*=[[:space:]]*[\'\"]?([^\'\"]+)[\'\"]?[[:space:]]*$ ]]; then
-            destination="${BASH_REMATCH[1]}"
-            continue
-        fi
-        
-        # new= Zeile
-        if [[ "$line" =~ ^[[:space:]]*new[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$ ]]; then
-            if [[ "$current_job" == "DEFAULTS" ]]; then
-                default_new="${BASH_REMATCH[1]}"
-            else
-                job_new="${BASH_REMATCH[1]}"
-            fi
-            continue
-        fi
-        
-        # change= Zeile
-        if [[ "$line" =~ ^[[:space:]]*change[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$ ]]; then
-            if [[ "$current_job" == "DEFAULTS" ]]; then
-                default_change="${BASH_REMATCH[1]}"
-            else
-                job_change="${BASH_REMATCH[1]}"
-            fi
-            continue
-        fi
-        
-        # delete= Zeile
-        if [[ "$line" =~ ^[[:space:]]*delete[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$ ]]; then
-            if [[ "$current_job" == "DEFAULTS" ]]; then
-                default_delete="${BASH_REMATCH[1]}"
-            else
-                job_delete="${BASH_REMATCH[1]}"
-            fi
-            continue
-        fi
-    done < "$CONFIG_FILE"
-    
-    # Letzten Job nicht vergessen (aber nicht DEFAULTS)
-    if [[ -n "$current_job" && "$current_job" != "DEFAULTS" && -n "$source" && -n "$destination" ]]; then
-        local final_new="${job_new:-$default_new}"
-        local final_change="${job_change:-$default_change}"
-        local final_delete="${job_delete:-$default_delete}"
-        echo "$current_job|$source|$destination|$final_new|$final_change|$final_delete"
+# ***************************************************************************
+# BEGIN: LOG Handling
+# ***************************************************************************
+
+# ===========================================================================
+# Konstanten für das Log-Handling
+# ===========================================================================
+#-- Pfad zur Log-Datei ------------------------------------------------------
+LOG_FILE="$SCRIPT_DIR/../log/cloud-sync.log"
+#-- Log-Levels definieren ---------------------------------------------------
+LOG_LEVEL_INFO="INFO"
+LOG_LEVEL_ERROR="FEHLER"
+LOG_LEVEL_SUCCESS="SUCCESS"
+LOG_LEVEL_WARNING="WARNUNG"
+LOG_LEVEL_DEBUG="DEBUG"
+LOG_LEVEL_START="START"
+LOG_LEVEL_STARTUP="STARTUP"
+LOG_LEVEL_SHUTDOWN="SHUTDOWN"
+LOG_LEVEL_CONFIG="CONFIG"
+LOG_LEVEL_INIT="INIT"
+LOG_LEVEL_PROGRESS="PROGRESS"
+LOG_LEVEL_DELETE="DELETE"
+LOG_LEVEL_SYNC="SYNC"
+
+# ===========================================================================
+# _set_log
+# ---------------------------------------------------------------------------
+# Function.: write message to log file with timestamp
+# Parameter: level = log level (INFO, ERROR, etc.)
+# .........  category = SYSTEM or job name 
+# .........  message = log message to write
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+_set_log() {
+    #-- Define local variables ----------------------------------------------
+    local level="$1"
+    local category="$2"
+    local message="$3"
+
+    #-- Validate parameters -------------------------------------------------
+    if [[ -z "$category" || -z "$level" || -z "$message" ]]; then
+        echo "Error: Category, level and message must be provided" >&2
+        return 1
     fi
+
+    #-- Write log message with timestamp ------------------------------------
+    echo "[$(date)] [$category] [$level] $message" >> "$LOG_FILE"
+
+    #-- Return success ------------------------------------------------------
+    return 0
+}
+
+# ===========================================================================
+# log_info
+# ---------------------------------------------------------------------------
+# Function.: Write INFO level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_info() {
+    #-- Call _set_log with INFO level ---------------------------------------
+    _set_log "$LOG_LEVEL_INFO" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_error
+# ---------------------------------------------------------------------------
+# Function.: Write FEHLER level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_error() {
+    #-- Call _set_log with FEHLER level -------------------------------------
+    _set_log "$LOG_LEVEL_ERROR" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_success
+# ---------------------------------------------------------------------------
+# Function.: Write SUCCESS level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_success() {
+    #-- Call _set_log with SUCCESS level ------------------------------------
+    _set_log "$LOG_LEVEL_SUCCESS" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_warning
+# ---------------------------------------------------------------------------
+# Function.: Write WARNUNG level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_warning() {
+    #-- Call _set_log with WARNUNG level ------------------------------------
+    _set_log "$LOG_LEVEL_WARNING" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_debug
+# ---------------------------------------------------------------------------
+# Function.: Write DEBUG level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_debug() {
+    #-- Call _set_log with DEBUG level --------------------------------------
+    _set_log "$LOG_LEVEL_DEBUG" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_start
+# ---------------------------------------------------------------------------
+# Function.: Write START level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_start() {
+    #-- Call _set_log with START level --------------------------------------
+    _set_log "$LOG_LEVEL_START" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_startup
+# ---------------------------------------------------------------------------
+# Function.: Write STARTUP level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_startup() {
+    #-- Call _set_log with STARTUP level ------------------------------------
+    _set_log "$LOG_LEVEL_STARTUP" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_shutdown
+# ---------------------------------------------------------------------------
+# Function.: Write SHUTDOWN level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_shutdown() {
+    #-- Call _set_log with SHUTDOWN level -----------------------------------
+    _set_log "$LOG_LEVEL_SHUTDOWN" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_config
+# ---------------------------------------------------------------------------
+# Function.: Write CONFIG level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_config() {
+    #-- Call _set_log with CONFIG level -------------------------------------
+    _set_log "$LOG_LEVEL_CONFIG" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_init
+# ---------------------------------------------------------------------------
+# Function.: Write INIT level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_init() {
+    #-- Call _set_log with INIT level ---------------------------------------
+    _set_log "$LOG_LEVEL_INIT" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_progress
+# ---------------------------------------------------------------------------
+# Function.: Write PROGRESS level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_progress() {
+    #-- Call _set_log with PROGRESS level -----------------------------------
+    _set_log "$LOG_LEVEL_PROGRESS" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_delete
+# ---------------------------------------------------------------------------
+# Function.: Write DELETE level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_delete() {
+    #-- Call _set_log with DELETE level -------------------------------------
+    _set_log "$LOG_LEVEL_DELETE" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ===========================================================================
+# log_sync
+# ---------------------------------------------------------------------------
+# Function.: Write SYNC level log entry
+# Parameter: category = SYSTEM or job name
+# .........  message = log message
+# Return...: 0 on success, 1 on failure
+# ===========================================================================
+log_sync() {
+    #-- Call _set_log with SYNC level ---------------------------------------
+    _set_log "$LOG_LEVEL_SYNC" "$1" "$2"
+    #-- Return success ------------------------------------------------------
+    return $?
+}
+
+# ***************************************************************************
+# END: LOG Handling
+# ***************************************************************************
+
+# ***************************************************************************
+# BEGIN: INI Handling
+# ***************************************************************************
+
+#-- Pfad zur Konfigurationsdatei --------------------------------------------
+CONFIG_FILE="$SCRIPT_DIR/../conf/cloud-sync.conf"
+
+# ===========================================================================
+# get_file_ini
+# ---------------------------------------------------------------------------
+# Function.: return path to INI file
+# Parameter: none
+# Return...: path to INI file
+# ===========================================================================
+get_file_ini() {
+    #-- Lokale Variablen definieren -----------------------------------------
+    local file="$CONFIG_FILE"
+
+    #-- Prüfen ob Datei existiert -------------------------------------------
+    if [ ! -f "$file" ]; then
+        echo "Error: INI file not found: $file" >&2
+        return 1
+    fi
+
+    #-- Prüfen ob Datei lesbar/beschreibar ist ------------------------------
+    if [ ! -w "$file" ] && [ ! -r "$file" ]; then
+        echo "Error: INI file is not readable/writable: $file" >&2
+        return 1
+    fi
+
+    #-- Pfad zur INI-Datei zurückgeben --------------------------------------
+    echo "$file"
+    return 0
+}
+
+# ===========================================================================
+# get_value_ini
+# ---------------------------------------------------------------------------
+# Function.: read value from INI file, supports section and key with optional
+# .........  default value, sets the default value if key is not found
+# Parameter: section = section name in INI file
+# .........  key = value to read
+# .........  default = optional default value 
+# Return...: value
+# ===========================================================================
+get_value_ini() {
+    #-- Read parameters -----------------------------------------------------
+    local section="$1"
+    local key="$2"
+    local default="$3"
+
+    #-- Define local variables ----------------------------------------------
+    local file="$(get_file_ini)"
+    
+    #-- Validate parameters -------------------------------------------------
+    if [[ -z "$section" || -z "$key" ]]; then
+        echo "Error: Section and key must be provided" >&2
+        return 1
+    fi
+
+    #-- Parse file and return found value -----------------------------------
+    local value=""
+    value=$(awk -F'=' -v section="$section" -v key="$key" '
+        $0 ~ "\\[" section "\\]" { in_section=1; next }
+        $0 ~ "^\\[" { in_section=0 }
+        in_section && $1 ~ "^" key "[[:space:]]*$" {
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)  # Trim whitespace
+            print $2
+            exit
+        }
+    ' "$file")
+    
+    #-- If no value found, use default --------------------------------------
+    if [[ -z "$value" ]]; then
+        set_value_ini "$section" "$key" "$default" >/dev/null 2>&1
+        value="$default"
+    fi
+
+    #-- Return value --------------------------------------------------------
+    echo "$value"
+    return 0
+}
+
+# ===========================================================================
+# set_value_ini
+# ---------------------------------------------------------------------------
+# Function.: write value to INI file
+# Parameter: section
+# .........  key
+# .........  value
+# Return...: none
+# ===========================================================================
+set_value_ini() {
+    #-- Parameter lesen -----------------------------------------------------
+    local section="$1"
+    local key="$2"
+    local value="$3"
+
+    #-- Lokale Variablen definieren -----------------------------------------
+    local file="$(get_file_ini)"
+
+    #-- Parameter validieren ------------------------------------------------
+    if [[ -z "$section" || -z "$key" ]]; then
+        echo "Error: Section and key must be provided" >&2
+        return 1
+    fi
+
+    #-- Datei parsen und Wert setzen ----------------------------------------
+    awk -F'=' -v section="$section" -v key="$key" -v value="$value" '
+        BEGIN { in_section=0; updated=0 }
+        $0 ~ "\\[" section "\\]" { in_section=1; print; next }
+        $0 ~ "^\\[" { in_section=0 }
+        in_section && $1 ~ "^" key "[[:space:]]*$" {
+            print key " = " value
+            updated=1
+            next
+        }
+        { print }
+        END {
+            if (!updated) {
+                if (!in_section) {
+                    print "[" section "]"
+                }
+                print key " = " value
+            }
+        }
+    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+
+    #-- Erfolg zurückgeben --------------------------------------------------
+    return 0
+}
+
+# ===========================================================================
+# get_sections_ini
+# ---------------------------------------------------------------------------
+# Function.: get all section names from INI file
+# Parameter: none
+# Return...: list of section names (one per line)
+# ===========================================================================
+get_sections_ini() {
+    #-- Lokale Variablen definieren -----------------------------------------
+    local file="$(get_file_ini)"
+    
+    #-- Alle Sektionen extrahieren ------------------------------------------
+    awk '
+        /^\[.*\]/ {
+            gsub(/^\[|\]$/, "")
+            print
+        }
+    ' "$file"
+}
+
+# ***************************************************************************
+# END: INI Handling
+# ***************************************************************************
+
+# ===========================================================================
+# parse_config
+# ---------------------------------------------------------------------------
+# Function.: parse INI file and return job configurations
+# Parameter: none
+# Return...: job configurations in format: name|source|dest|new|change|delete
+# ===========================================================================
+parse_config() {
+    #-- Read defaults from DEFAULTS section with fallback values ------------
+    local default_new="$(get_value_ini "DEFAULTS" "new" "true")"
+    local default_change="$(get_value_ini "DEFAULTS" "change" "true")"
+    local default_delete="$(get_value_ini "DEFAULTS" "delete" "false")"
+    
+    #-- Iterate through all sections ----------------------------------------
+    while IFS= read -r section; do
+        #-- Skip DEFAULTS and WEB-UI sections -------------------------------
+        [[ "$section" == "DEFAULTS" || "$section" == "WEB-UI" ]] && continue
+        
+        #-- Read job data using INI functions -------------------------------
+        local source="$(get_value_ini "$section" "source")"
+        local destination="$(get_value_ini "$section" "destination")"
+        
+        #-- Only process jobs with source and destination -------------------
+        if [[ -n "$source" && -n "$destination" ]]; then
+            #-- Read job-specific values with default fallback --------------
+            local final_new="$(get_value_ini "$section" "new" "$default_new")"
+            local final_change="$(get_value_ini "$section" "change" "$default_change")"
+            local final_delete="$(get_value_ini "$section" "delete" "$default_delete")"
+            
+            #-- Output job configuration ------------------------------------
+            echo "$section|$source|$destination|$final_new|$final_change|$final_delete"
+        fi
+    done < <(get_sections_ini)
 }
 
 # Funktion für einzelnes Sync-Paar
@@ -283,9 +633,9 @@ cleanup() {
 
 trap cleanup SIGTERM SIGINT
 
-# Prüfe ob Konfigurationsdatei existiert
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "[$(date)] [SYSTEM] [FEHLER] Konfigurationsdatei nicht gefunden: $CONFIG_FILE" >> "$LOG_FILE"
+# Prüfe ob Konfigurationsdatei existiert und lesbar ist
+if ! config_file="$(get_file_ini 2>&1)"; then
+    echo "[$(date)] [SYSTEM] [FEHLER] $config_file" >> "$LOG_FILE"
     exit 1
 fi
 
