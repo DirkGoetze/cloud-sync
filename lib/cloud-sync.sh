@@ -448,6 +448,41 @@ get_formated_size() {
     return 0
 }
 
+# ===========================================================================
+# parse_config
+# ---------------------------------------------------------------------------
+# Function.: parse INI file and return job configurations
+# Parameter: none
+# Return...: job configurations in format: name|source|dest|new|change|delete
+# ===========================================================================
+parse_config() {
+    #-- Read defaults from DEFAULTS section with fallback values ------------
+    local default_new="$(get_value_ini "DEFAULTS" "new" "true")"
+    local default_change="$(get_value_ini "DEFAULTS" "change" "true")"
+    local default_delete="$(get_value_ini "DEFAULTS" "delete" "false")"
+    
+    #-- Iterate through all sections ----------------------------------------
+    while IFS= read -r section; do
+        #-- Skip DEFAULTS and WEB-UI sections -------------------------------
+        [[ "$section" == "DEFAULTS" || "$section" == "WEB-UI" ]] && continue
+        
+        #-- Read job data using INI functions -------------------------------
+        local source="$(get_value_ini "$section" "source")"
+        local destination="$(get_value_ini "$section" "destination")"
+        
+        #-- Only process jobs with source and destination -------------------
+        if [[ -n "$source" && -n "$destination" ]]; then
+            #-- Read job-specific values with default fallback --------------
+            local final_new="$(get_value_ini "$section" "new" "$default_new")"
+            local final_change="$(get_value_ini "$section" "change" "$default_change")"
+            local final_delete="$(get_value_ini "$section" "delete" "$default_delete")"
+            
+            #-- Output job configuration ------------------------------------
+            echo "$section|$source|$destination|$final_new|$final_change|$final_delete"
+        fi
+    done < <(get_sections_ini)
+}
+
 # ***************************************************************************
 # END: Helper Functions
 # ***************************************************************************
