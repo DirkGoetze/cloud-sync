@@ -449,45 +449,31 @@ get_formated_size() {
 }
 
 # ===========================================================================
-# parse_config
+# prepare_rsync_options
 # ---------------------------------------------------------------------------
-# Function.: parse INI file and return job configurations
-# Parameter: none
-# Return...: job configurations in format: name|source|dest|new|change|delete
+# Function.: prepare rsync options based on job configuration
+# Parameter: new, change, delete (true/false)
+# Return...: rsync options string
 # ===========================================================================
-parse_config() {
+prepare_rsync_options() {
+    #-- Read parameters -----------------------------------------------------
+    local job_name="$1"
+
+    #-- Validate parameters -------------------------------------------------
+    if [[ -z "$job_name" ]]; then
+        echo "Error: Job name must be provided" >&2
+        return 1
+    fi
+
     #-- Read defaults from DEFAULTS section with fallback values ------------
     local default_new="$(get_value_ini "DEFAULTS" "new" "true")"
     local default_change="$(get_value_ini "DEFAULTS" "change" "true")"
     local default_delete="$(get_value_ini "DEFAULTS" "delete" "false")"
-    
-    #-- Iterate through all sections ----------------------------------------
-    while IFS= read -r section; do
-        #-- Skip DEFAULTS and WEB-UI sections -------------------------------
-        [[ "$section" == "DEFAULTS" || "$section" == "WEB-UI" ]] && continue
-        
-        #-- Read job data using INI functions -------------------------------
-        local source="$(get_value_ini "$section" "source")"
-        local destination="$(get_value_ini "$section" "destination")"
-        
-        #-- Only process jobs with source and destination -------------------
-        if [[ -n "$source" && -n "$destination" ]]; then
-            #-- Read job-specific values with default fallback --------------
-            local final_new="$(get_value_ini "$section" "new" "$default_new")"
-            local final_change="$(get_value_ini "$section" "change" "$default_change")"
-            local final_delete="$(get_value_ini "$section" "delete" "$default_delete")"
-            
-            #-- Output job configuration ------------------------------------
-            echo "$section|$source|$destination|$final_new|$final_change|$final_delete"
-        fi
-    done < <(get_sections_ini)
-}
 
-
-prepare_rsync_options() {
-    local new="$1"
-    local change="$2"
-    local delete="$3"
+    #-- Define local variables ----------------------------------------------
+    local new="$(get_value_ini "$job_name" "new" "$default_new")"
+    local change="$(get_value_ini "$job_name" "change" "$default_change")"
+    local delete="$(get_value_ini "$job_name" "delete" "$default_delete")"
     
     # Baue rsync Optionen für initiale Synchronisation
     local options="-av"
@@ -504,13 +490,55 @@ prepare_rsync_options() {
     elif [[ "$new" == "false" && "$change" == "false" ]]; then
         options=""
     fi
-    
     [[ "$delete" == "true" ]] && options="$options --delete"
     
-    # Führe rsync mit custom output format für Größen-Tracking
+    #-- Log used options ----------------------------------------------------
+    log_config "$job_name" "Parameter: new=$new, change=$change, delete=$delete"
+
+    #-- rsync with custom output format für size-tracking -------------------
     options="$options --stats --out-format=%l|%n"
 
+    #-- Return options ------------------------------------------------------
     echo "$options"
+    return 0
+}
+
+# ===========================================================================
+# prepare_inotify_events
+# ---------------------------------------------------------------------------
+# Function.: prepare inotifywait events string based on job configuration
+# Parameter: new, change, delete (true/false)
+# Return...: inotifywait events string (e.g., "create,modify,delete")
+# ===========================================================================
+prepare_inotify_events() {
+    #-- Read parameters -----------------------------------------------------
+    local job_name="$1"
+
+    #-- Validate parameters -------------------------------------------------
+    if [[ -z "$job_name" ]]; then
+        echo "Error: Job name must be provided" >&2
+        return 1
+    fi
+
+    #-- Read defaults from DEFAULTS section with fallback values ------------
+    local default_new="$(get_value_ini "DEFAULTS" "new" "true")"
+    local default_change="$(get_value_ini "DEFAULTS" "change" "true")"
+    local default_delete="$(get_value_ini "DEFAULTS" "delete" "false")"
+
+    #-- Define local variables ----------------------------------------------
+    local new="$(get_value_ini "$job_name" "new" "$default_new")"
+    local change="$(get_value_ini "$job_name" "change" "$default_change")"
+    local delete="$(get_value_ini "$job_name" "delete" "$default_delete")"
+
+    #-- Build inotifywait events string --------------------------------------
+    local events=""
+    [[ "$new" == "true" ]] && events="create,moved_to"
+    [[ "$change" == "true" ]] && events="${events:+$events,}modify"
+    [[ "$delete" == "true" ]] && events="${events:+$events,}delete,moved_from"
+
+    #-- Return events string ------------------------------------------------
+    echo "$events"
+    return 0
 }
 
 # ***************************************************************************
@@ -519,22 +547,44 @@ prepare_rsync_options() {
 
 # Funktion für einzelnes Sync-Paar
 watch_and_sync() {
-    local JOB_NAME="$1"
-    local SOURCE="$2"
-    local TARGET="$3"
-    local SYNC_NEW="$4"
-    local SYNC_CHANGE="$5"
-    local SYNC_DELETE="$6"
+    #-- Read parameters -----------------------------------------------------
+    local job_name="$1"
+
+    #-- Validate parameters -------------------------------------------------
+    if [[ -z "$job_name" ]]; then
+        echo "Error: Job name must be provided" >&2
+        return 1
+    fi
+
+    #-- Read source and target from INI -------------------------------------
+    local source="$(get_value_ini "$job_name" "source")"
+    local target="$(get_value_ini "$job_name" "destination")"
+
+    # Prüfe ob Quellordner existiert
+    if [ ! -d "$source" ]; then
+        log_error "$job_name" "Quellordner nicht gefunden: $source"
+        return 1
+    fi
     
-    log_start "$JOB_NAME" "Starte Überwachung: $SOURCE -> $TARGET"
-    log_config "$JOB_NAME" "Parameter: new=$SYNC_NEW, change=$SYNC_CHANGE, delete=$SYNC_DELETE"
+    # Erstelle Zielordner falls nicht vorhanden
+    if [ ! -d "$target" ]; then
+        log_warning "$job_name" "Zielordner nicht gefunden, erstelle: $target"
+        mkdir -p "$target"
+        if [ $? -ne 0 ]; then
+            log_error "$job_name" "Zielordner konnte nicht erstellt werden: $target"
+            return 1
+        fi
+    fi
+
+    #-- Log job start -------------------------------------------------------
+    log_start "$job_name" "Starte Überwachung: $source -> $target"
     
     # Baue rsync Optionen für initiale Synchronisation
-    local RSYNC_OPTS=$(prepare_rsync_options "$SYNC_NEW" "$SYNC_CHANGE" "$SYNC_DELETE")
+    local RSYNC_OPTS=$(prepare_rsync_options "$job_name")
     
     # Initiale Synchronisation mit Stats
     if [[ -n "$RSYNC_OPTS" ]]; then
-        log_init "$JOB_NAME" "Starte initiale Synchronisation..."
+        log_init "$job_name" "Starte initiale Synchronisation..."
         
         # Zähler für Dateien und Größe
         FILE_COUNT=0
@@ -557,61 +607,58 @@ watch_and_sync() {
                 
                 if [[ $TIME_DIFF -ge 10 ]] || [[ $((FILE_COUNT % 100)) -eq 0 ]]; then
                     FORMATTED_SIZE=$(get_formated_size $TOTAL_BYTES)
-                    log_progress "$JOB_NAME" "Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE"
+                    log_progress "$job_name" "Dateien: $FILE_COUNT, Größe: $FORMATTED_SIZE"
                     LAST_LOG_TIME=$CURRENT_TIME
                 fi
             # Stats-Zeilen (ohne Pipe)
             elif [[ "$size" =~ (Number of files|Total file size|Total transferred|speedup) ]]; then
-                log_init "$JOB_NAME" "$size"
+                log_init "$job_name" "$size"
             fi
-        done < <(rsync $RSYNC_OPTS_INIT "$SOURCE/" "$TARGET/" 2>&1)
+        done < <(rsync $RSYNC_OPTS "$source/" "$target/" 2>&1)
         
         # Prüfe Exit-Code
         RSYNC_EXIT=$?
         if [ $RSYNC_EXIT -eq 0 ]; then
-            log_success "$JOB_NAME" "Initiale Synchronisation erfolgreich abgeschlossen"
+            log_success "$job_name" "Initiale Synchronisation erfolgreich abgeschlossen"
         else
-            log_error "$JOB_NAME" "Initiale Synchronisation fehlgeschlagen (Exit: $RSYNC_EXIT)"
+            log_error "$job_name" "Initiale Synchronisation fehlgeschlagen (Exit: $RSYNC_EXIT)"
         fi
     fi
     
     # Baue inotifywait Events
-    local EVENTS=""
-    [[ "$SYNC_NEW" == "true" ]] && EVENTS="create,moved_to"
-    [[ "$SYNC_CHANGE" == "true" ]] && EVENTS="${EVENTS:+$EVENTS,}modify"
-    [[ "$SYNC_DELETE" == "true" ]] && EVENTS="${EVENTS:+$EVENTS,}delete,moved_from"
+    local EVENTS=$(prepare_inotify_events "$job_name")
     
     # Wenn keine Events aktiviert sind, beende die Funktion
     if [[ -z "$EVENTS" ]]; then
-        log_warning "$JOB_NAME" "Keine Sync-Events aktiviert!"
+        log_warning "$job_name" "Keine Sync-Events aktiviert!"
         return
     fi
     
-    log_start "$JOB_NAME" "Starte Live-Überwachung für Events: $EVENTS"
+    log_start "$job_name" "Starte Live-Überwachung für Events: $EVENTS"
     
     # Überwachung (mit -q für quiet, ohne Statusmeldungen)
-    inotifywait -m -r -q -e "$EVENTS" "$SOURCE" --format '%e %w%f' 2>&1 |
+    inotifywait -m -r -q -e "$EVENTS" "$source" --format '%e %w%f' 2>&1 |
     while read EVENT FILE
     do
         # Debug: Logge empfangenes Event
-        log_debug "$JOB_NAME" "Event empfangen: EVENT=$EVENT FILE=$FILE"
+        log_debug "$job_name" "Event empfangen: EVENT=$EVENT FILE=$FILE"
         
-        RELATIVE_PATH="${FILE#$SOURCE/}"
-        TARGET_FILE="$TARGET/$RELATIVE_PATH"
+        RELATIVE_PATH="${FILE#$source/}"
+        TARGET_FILE="$target/$RELATIVE_PATH"
         TARGET_DIR=$(dirname "$TARGET_FILE")
         
         # Löschungen behandeln
         if [[ "$EVENT" == "DELETE" || "$EVENT" == "MOVED_FROM" ]]; then
-            if [[ "$SYNC_DELETE" == "true" ]]; then
+            if [[ "$EVENTS" =~ delete ]]; then
                 FILENAME=$(basename "$TARGET_FILE")
-                log_delete "$JOB_NAME" "Lösche: $FILENAME"
+                log_delete "$job_name" "Lösche: $FILENAME"
                 
                 if rm -rf "$TARGET_FILE" 2>&1 | while IFS= read -r line; do
-                    log_delete "$JOB_NAME" "$line"
+                    log_delete "$job_name" "$line"
                 done; [ ${PIPESTATUS[0]} -eq 0 ]; then
-                    log_success "$JOB_NAME" "Löschung erfolgreich"
+                    log_success "$job_name" "Löschung erfolgreich"
                 else
-                    log_error "$JOB_NAME" "Löschung fehlgeschlagen"
+                    log_error "$job_name" "Löschung fehlgeschlagen"
                 fi
             fi
         else
@@ -620,11 +667,11 @@ watch_and_sync() {
             
             # Verwende job-spezifische rsync Optionen
             local FILE_RSYNC_OPTS="-av"
-            if [[ "$EVENT" =~ CREATE|MOVED_TO ]] && [[ "$SYNC_NEW" != "true" ]]; then
-                continue  # Überspringe wenn new=false
+            if [[ "$EVENT" =~ CREATE|MOVED_TO ]] && [[ ! "$EVENTS" =~ create ]]; then
+                continue  # Überspringe wenn 'create' nicht in EVENTS
             fi
-            if [[ "$EVENT" =~ MODIFY ]] && [[ "$SYNC_CHANGE" != "true" ]]; then
-                continue  # Überspringe wenn change=false
+            if [[ "$EVENT" =~ MODIFY ]] && [[ ! "$EVENTS" =~ modify ]]; then
+                continue  # Überspringe wenn 'modify' nicht in EVENTS
             fi
             
             # Ermittle Dateigröße und Name
@@ -637,14 +684,14 @@ watch_and_sync() {
             fi
             
             # Log Start mit relativem Pfad
-            log_sync "$JOB_NAME" "$EVENT: $RELATIVE_PATH ($SIZE_INFO)"
+            log_sync "$job_name" "$EVENT: $RELATIVE_PATH ($SIZE_INFO)"
             
             # Starte Timer
             START_TIME=$(date +%s)
             
             # Rsync mit Ausgabe-Präfix
             rsync $FILE_RSYNC_OPTS "$FILE" "$TARGET_FILE" 2>&1 | while IFS= read -r line; do
-                log_sync "$JOB_NAME" "$line"
+                log_sync "$job_name" "$line"
             done
             
             # Prüfe Exit-Code und logge Ergebnis
@@ -652,9 +699,9 @@ watch_and_sync() {
             if [ $RSYNC_EXIT -eq 0 ]; then
                 END_TIME=$(date +%s)
                 DURATION=$((END_TIME - START_TIME))
-                log_success "$JOB_NAME" "Datei synchronisiert in ${DURATION}s"
+                log_success "$job_name" "Datei synchronisiert in ${DURATION}s"
             else
-                log_error "$JOB_NAME" "Rsync fehlgeschlagen (Exit: $RSYNC_EXIT)"
+                log_error "$job_name" "Rsync fehlgeschlagen (Exit: $RSYNC_EXIT)"
             fi
         fi
     done
@@ -680,21 +727,12 @@ log_startup "SYSTEM" "====== Cloud-Sync Service gestartet ======"
 
 # Konfiguration einlesen und Prozesse starten
 JOBS_STARTED=0
-while IFS='|' read -r JOB_NAME SOURCE DESTINATION SYNC_NEW SYNC_CHANGE SYNC_DELETE; do
-    # Prüfe ob Quellordner existiert
-    if [ ! -d "$SOURCE" ]; then
-        log_error "$JOB_NAME" "Quellordner nicht gefunden: $SOURCE"
-        continue
-    fi
+while IFS= read -r section; do
+    [[ "$section" == "DEFAULTS" || "$section" == "WEB-UI" ]] && continue
     
-    # Erstelle Zielordner falls nicht vorhanden
-    mkdir -p "$DESTINATION"
-    
-    # Starte Sync-Prozess im Hintergrund
-    watch_and_sync "$JOB_NAME" "$SOURCE" "$DESTINATION" "$SYNC_NEW" "$SYNC_CHANGE" "$SYNC_DELETE" &
-    JOBS_STARTED=$((JOBS_STARTED + 1))
-    
-done < <(parse_config)
+    watch_and_sync "$section" &
+    ((JOBS_STARTED++))
+done < <(get_sections_ini)
 
 if [ $JOBS_STARTED -eq 0 ]; then
     log_warning "SYSTEM" "Keine gültigen Sync-Jobs gefunden!"
