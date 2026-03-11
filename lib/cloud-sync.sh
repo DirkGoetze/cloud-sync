@@ -10,8 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ===========================================================================
 # Konstanten für das Log-Handling
 # ===========================================================================
-#-- Pfad zur Log-Datei ------------------------------------------------------
-LOG_FILE="$SCRIPT_DIR/../log/cloud-sync.log"
+
 #-- Log-Levels definieren ---------------------------------------------------
 LOG_LEVEL_INFO="INFO"
 LOG_LEVEL_ERROR="FEHLER"
@@ -26,6 +25,36 @@ LOG_LEVEL_INIT="INIT"
 LOG_LEVEL_PROGRESS="PROGRESS"
 LOG_LEVEL_DELETE="DELETE"
 LOG_LEVEL_SYNC="SYNC"
+
+# ===========================================================================
+# get_file_log
+# ---------------------------------------------------------------------------
+# Function.: return path to LOG file
+# Parameter: none
+# Return...: path to LOG file
+# ===========================================================================
+get_file_log() {
+    #-- Lokale Variablen definieren -----------------------------------------
+    local script_base="$(basename "${BASH_SOURCE[0]}")"
+    local script_name="${script_base%.sh}"
+    local file="$SCRIPT_DIR/../log/${script_name}.log"
+
+    #-- Prüfen ob Datei existiert -------------------------------------------
+    if [ ! -f "$file" ]; then
+        echo "Error: LOG file not found: $file" >&2
+        return 1
+    fi
+
+    #-- Prüfen ob Datei lesbar/beschreibar ist ------------------------------
+    if [ ! -w "$file" ] && [ ! -r "$file" ]; then
+        echo "Error: LOG file is not readable/writable: $file" >&2
+        return 1
+    fi
+
+    #-- Pfad zur INI-Datei zurückgeben --------------------------------------
+    echo "$file"
+    return 0
+}
 
 # ===========================================================================
 # _set_log
@@ -48,8 +77,15 @@ _set_log() {
         return 1
     fi
 
+    #-- Get log file path ---------------------------------------------------
+    local log_file="$(get_file_log 2>&1)"
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Could not get log file path: $log_file" >&2
+        return 1
+    fi
+
     #-- Write log message with timestamp ------------------------------------
-    echo "[$(date)] [$category] [$level] $message" >> "$LOG_FILE"
+    echo "[$(date)] [$category] [$level] $message" >> "$log_file"
 
     #-- Return success ------------------------------------------------------
     return 0
@@ -258,9 +294,6 @@ log_sync() {
 # BEGIN: INI Handling
 # ***************************************************************************
 
-#-- Pfad zur Konfigurationsdatei --------------------------------------------
-CONFIG_FILE="$SCRIPT_DIR/../conf/cloud-sync.conf"
-
 # ===========================================================================
 # get_file_ini
 # ---------------------------------------------------------------------------
@@ -270,7 +303,9 @@ CONFIG_FILE="$SCRIPT_DIR/../conf/cloud-sync.conf"
 # ===========================================================================
 get_file_ini() {
     #-- Lokale Variablen definieren -----------------------------------------
-    local file="$CONFIG_FILE"
+    local script_base="$(basename "${BASH_SOURCE[0]}")"
+    local script_name="${script_base%.sh}"
+    local file="$SCRIPT_DIR/../conf/${script_name}.conf"
 
     #-- Prüfen ob Datei existiert -------------------------------------------
     if [ ! -f "$file" ]; then
