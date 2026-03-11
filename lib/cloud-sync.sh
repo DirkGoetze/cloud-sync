@@ -38,16 +38,27 @@ get_file_log() {
     local script_base="$(basename "${BASH_SOURCE[0]}")"
     local script_name="${script_base%.sh}"
     local file="$SCRIPT_DIR/../log/${script_name}.log"
+    local dir="$(dirname "$file")"
 
-    #-- Prüfen ob Datei existiert -------------------------------------------
+    #-- Erstelle Log-Verzeichnis falls nicht vorhanden ----------------------
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir" || {
+            echo "Error: Cannot create log directory: $dir" >&2
+            return 1
+        }
+    fi
+    
+    #-- Erstelle Log-Datei falls nicht vorhanden ----------------------------
     if [ ! -f "$file" ]; then
-        echo "Error: LOG file not found: $file" >&2
-        return 1
+        touch "$file" || {
+            echo "Error: Cannot create log file: $file" >&2
+            return 1
+        }
     fi
 
-    #-- Prüfen ob Datei lesbar/beschreibar ist ------------------------------
-    if [ ! -w "$file" ] && [ ! -r "$file" ]; then
-        echo "Error: LOG file is not readable/writable: $file" >&2
+    #-- Prüfen ob Datei beschreibar ist -------------------------------------
+    if [ ! -w "$file" ]; then
+        echo "Error: LOG file is not writable: $file" >&2
         return 1
     fi
 
@@ -70,17 +81,11 @@ _set_log() {
     local level="$1"
     local category="$2"
     local message="$3"
-
+    local log_file="$(get_file_log)"
+    
     #-- Validate parameters -------------------------------------------------
     if [[ -z "$category" || -z "$level" || -z "$message" ]]; then
         echo "Error: Category, level and message must be provided" >&2
-        return 1
-    fi
-
-    #-- Get log file path ---------------------------------------------------
-    local log_file="$(get_file_log 2>&1)"
-    if [[ $? -ne 0 ]]; then
-        echo "Error: Could not get log file path: $log_file" >&2
         return 1
     fi
 
@@ -751,14 +756,20 @@ cleanup() {
 
 trap cleanup SIGTERM SIGINT
 
-# Prüfe ob Konfigurationsdatei existiert und lesbar ist
-if ! config_file="$(get_file_ini 2>&1)"; then
-    log_error "SYSTEM" "$config_file"
+# Prüfe ob Log-Datei existiert und beschreibbar ist
+if ! log_file="$(get_file_log)"; then
+    echo "Error: $log_file"
     exit 1
 fi
 
 # Log-Datei initialisieren
 log_startup "SYSTEM" "====== Cloud-Sync Service gestartet ======"
+
+# Prüfe ob Konfigurationsdatei existiert und lesbar ist
+if ! config_file="$(get_file_ini)"; then
+    log_error "SYSTEM" "$config_file"
+    exit 1
+fi
 
 # Konfiguration einlesen und Prozesse starten
 JOBS_STARTED=0
