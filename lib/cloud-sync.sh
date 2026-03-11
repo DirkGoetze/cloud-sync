@@ -82,7 +82,7 @@ _set_log() {
     local category="$2"
     local message="$3"
     local log_file="$(get_file_log)"
-    
+
     #-- Validate parameters -------------------------------------------------
     if [[ -z "$category" || -z "$level" || -z "$message" ]]; then
         echo "Error: Category, level and message must be provided" >&2
